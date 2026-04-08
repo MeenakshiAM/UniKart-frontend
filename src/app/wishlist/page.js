@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { Heart, Loader2, Trash2 } from "lucide-react";
 import EmptyState from "@/components/EmptyState";
 import PageHero from "@/components/PageHero";
@@ -15,7 +15,7 @@ export default function WishlistPage() {
   const [status, setStatus] = useState({ type: "info", message: "" });
   const [busyProductId, setBusyProductId] = useState("");
 
-  const loadWishlist = async () => {
+  const loadWishlist = useCallback(async () => {
     setLoading(true);
 
     try {
@@ -30,11 +30,11 @@ export default function WishlistPage() {
     } finally {
       setLoading(false);
     }
-  };
+  }, []);
 
   useEffect(() => {
     loadWishlist();
-  }, []);
+  }, [loadWishlist]);
 
   const handleRemove = async (productId) => {
     setBusyProductId(productId);

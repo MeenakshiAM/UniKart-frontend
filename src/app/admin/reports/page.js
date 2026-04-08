@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import Link from "next/link";
 import ProtectedRoute from "@/components/ProtectedRoute";
 import PageCard from "@/components/PageCard";
@@ -49,7 +49,7 @@ export default function AdminReportsPage() {
   const [selectedReport, setSelectedReport] = useState(null);
   const [resolveForm, setResolveForm] = useState(initialResolveForm);
 
-  const loadReports = async (nextPage = page, nextFilters = filters) => {
+  const loadReports = useCallback(async (nextPage = page, nextFilters = filters) => {
     try {
       setLoading(true);
       setStatus((current) => ({ ...current, message: current.type === "error" ? "" : current.message }));
@@ -69,12 +69,11 @@ export default function AdminReportsPage() {
     } finally {
       setLoading(false);
     }
-  };
+  }, [filters, page]);
 
   useEffect(() => {
-    loadReports(page, filters);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [page, filters]);
+    loadReports();
+  }, [loadReports]);
 
   const handleFilterChange = (event) => {
     const { name, value } = event.target;

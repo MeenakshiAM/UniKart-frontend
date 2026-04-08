@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { Loader2, ShoppingCart, Trash2 } from "lucide-react";
 import EmptyState from "@/components/EmptyState";
 import PageHero from "@/components/PageHero";
@@ -23,7 +23,7 @@ export default function CartPage() {
   const [status, setStatus] = useState({ type: "info", message: "" });
   const [busyAction, setBusyAction] = useState("");
 
-  const loadCart = async () => {
+  const loadCart = useCallback(async () => {
     setLoading(true);
 
     try {
@@ -46,11 +46,11 @@ export default function CartPage() {
     } finally {
       setLoading(false);
     }
-  };
+  }, []);
 
   useEffect(() => {
     loadCart();
-  }, []);
+  }, [loadCart]);
 
   const handleRemove = async (productId) => {
     setBusyAction(`remove-${productId}`);

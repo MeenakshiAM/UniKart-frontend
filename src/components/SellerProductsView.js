@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import DashboardNav from "@/components/DashboardNav";
 import EmptyState from "@/components/EmptyState";
 import PageHero from "@/components/PageHero";
@@ -31,7 +31,7 @@ export default function SellerProductsView({
   });
   const [busyId, setBusyId] = useState("");
 
-  const fetchProducts = async () => {
+  const fetchProducts = useCallback(async () => {
     setState((current) => ({ ...current, loading: true, error: "" }));
 
     try {
@@ -50,11 +50,11 @@ export default function SellerProductsView({
         notice: "",
       });
     }
-  };
+  }, [loadProducts]);
 
   useEffect(() => {
     fetchProducts();
-  }, []);
+  }, [fetchProducts]);
 
   const runAction = async (productId, action, successMessage) => {
     setBusyId(productId);
