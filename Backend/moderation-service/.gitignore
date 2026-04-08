@@ -1,0 +1,6 @@
+node_modules/
+.env
+.env.local
+.env.development
+.env.production
+unikart-483110-64f0ead97d69.json
