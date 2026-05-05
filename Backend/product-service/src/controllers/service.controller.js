@@ -574,6 +574,86 @@ class ServiceController {
     });
   }
 }
+// ================= SELLER SERVICE FILTERS =================
+
+// ACTIVE services
+async getMyActiveServices(req, res) {
+  try {
+    const providerId = req.user.userId;
+    console.log("🔥 ACTIVE HIT:", req.user.userId);
+console.log("🔥 RESULT:", result.services);
+
+    const result = await serviceService.listServices(
+      { providerId, status: "active" },
+      Number(req.query.page) || 1,
+      Number(req.query.limit) || 20
+    );
+console.log("🔥 RESULT:", result.services);
+    return res.status(200).json({
+      success: true,
+      data: result.services,
+      pagination: result.pagination
+    });
+
+  } catch (error) {
+    return res.status(400).json({
+      success: false,
+      message: error.message
+    });
+  }
 }
+
+// PENDING services
+async getMyPendingServices(req, res) {
+  try {
+    const providerId = req.user.userId;
+console.log("🔥 ACTIVE HIT:", req.user.userId);
+
+    const result = await serviceService.listServices(
+      { providerId, status: "pending_approval" },
+      Number(req.query.page) || 1,
+      Number(req.query.limit) || 20
+    );
+console.log("🔥 RESULT:", result.services);
+    return res.status(200).json({
+      success: true,
+      data: result.services,
+      pagination: result.pagination
+    });
+
+  } catch (error) {
+    return res.status(400).json({
+      success: false,
+      message: error.message
+    });
+  }
+}
+// REJECTED services
+async getMyRejectedServices(req, res) {
+  try {
+    const providerId = req.user.userId;
+
+    const result = await serviceService.listServices(
+      { providerId, status: "rejected" },
+      Number(req.query.page) || 1,
+      Number(req.query.limit) || 20
+    );
+
+    return res.status(200).json({
+      success: true,
+      data: result.services,
+      pagination: result.pagination
+    });
+
+  } catch (error) {
+    return res.status(400).json({
+      success: false,
+      message: error.message
+    });
+  }
+}
+
+}
+
 
 module.exports = new ServiceController();

@@ -7,23 +7,47 @@ import PageCard from "@/components/PageCard";
 import StatusMessage from "@/components/StatusMessage";
 
 import {
-  getMyServices,
+  getMyActiveServices,
+  getMyPendingServices,
+  getMyRejectedServices,
   deleteService,
 } from "@/services/service.service";
 
-export default function SellerServicesPage() {
+export default function SellerServicePage() {
   const router = useRouter();
 
   const [services, setServices] = useState([]);
   const [loading, setLoading] = useState(false);
+  const [status, setStatus] = useState("ACTIVE");
 
+  // 🔥 DEBUG VERSION FETCHER (SAFE + CLEAR)
   const fetchServices = async () => {
     setLoading(true);
+
     try {
-      const res = await getMyServices();
-      setServices(res?.data || []);
+      let res;
+
+      if (status === "ACTIVE") {
+        res = await getMyActiveServices();
+      } else if (status === "PENDING") {
+        res = await getMyPendingServices();
+      } else {
+        res = await getMyRejectedServices();
+      }
+
+      // 🔥 IMPORTANT DEBUG LOG
+      console.log("🔥 API RESPONSE:", res);
+
+      // ✅ ALWAYS EXPECT ARRAY HERE
+      const list = Array.isArray(res)
+        ? res
+        : res?.data
+        ? res.data
+        : [];
+
+      setServices(list);
     } catch (err) {
-      console.log(err);
+      console.log("❌ FETCH ERROR:", err);
       setServices([]);
     } finally {
       setLoading(false);
@@ -32,81 +56,100 @@ export default function SellerServicesPage() {
 
   useEffect(() => {
     fetchServices();
-  }, []);
+  }, [status]);
 
   const handleDelete = async (id) => {
+    if (!confirm("Delete this service?")) return;
+
     try {
       await deleteService(id);
       fetchServices();
     } catch (err) {
-      console.log(err);
+      console.log("DELETE ERROR:", err);
     }
   };
 
   return (
-    <div className="p-6">
+    <div className="p-6 space-y-5">
 
-      <PageCard title="My Services">
+      <PageCard title="My Services" />
 
-        <button
-          onClick={() =>router.push("/seller/service/create")}
-          className="bg-green-600 text-white px-3 py-2 rounded mb-4"
-        >
-          + Create Service
-        </button>
+      {/* STATUS FILTER */}
+      <div className="flex gap-2">
+        {["ACTIVE", "PENDING", "REJECTED"].map((s) => (
+          <button
+            key={s}
+            onClick={() => setStatus(s)}
+            className={`px-3 py-1 border rounded ${
+              status === s ? "bg-black text-white" : ""
+            }`}
+          >
+            {s}
+          </button>
+        ))}
+      </div>
 
-        {loading ? (
-          <p>Loading...</p>
-        ) : services.length === 0 ? (
-          <StatusMessage type="info">
-            No services found
-          </StatusMessage>
-        ) : (
-          <div className="grid gap-4 md:grid-cols-2">
+      {/* CREATE */}
+      <button
+        onClick={() => router.push("/seller/service/create")}
+        className="bg-green-600 text-white px-4 py-2 rounded"
+      >
+        + Create Service
+      </button>
 
-            {services.map((s) => (
-              <div
-                key={s._id}
-                className="border p-4 rounded-lg"
-              >
+      {/* CONTENT */}
+      {loading ? (
+        <p className="text-gray-500">Loading...</p>
+      ) : services.length === 0 ? (
+        <StatusMessage type="info">
+          No services found
+        </StatusMessage>
+      ) : (
+        <div className="grid md:grid-cols-2 gap-4">
 
-                <h2 className="font-bold">{s.title}</h2>
+          {services.map((s) => (
+            <div key={s._id} className="border p-4 rounded">
 
-                <p className="text-sm text-gray-500">
-                  ₹{s.price}
-                </p>
+              <h2 className="font-bold">{s.title}</h2>
 
-                <p className="text-xs mt-1">
-                  Status: {s.status}
-                </p>
+              <p className="text-sm text-gray-500">
+                {s.category}
+              </p>
 
-                <div className="flex gap-2 mt-3">
+              <p className="mt-2 font-semibold">
+                ₹{s?.pricing?.basePrice}
+              </p>
 
-                  <button
-                    onClick={() =>
-                      router.push(`/seller/services/edit/${s._id}`)
-                    }
-                    className="bg-blue-600 text-white px-2 py-1 rounded text-sm"
-                  >
-                    Edit
-                  </button>
+              <p className="text-xs mt-1">
+                Status: {s.status}
+              </p>
 
-                  <button
-                    onClick={() => handleDelete(s._id)}
-                    className="bg-red-600 text-white px-2 py-1 rounded text-sm"
-                  >
-                    Delete
-                  </button>
+              <div className="flex gap-2 mt-3">
 
-                </div>
+                <button
+                  onClick={() =>
+                    router.push(`/seller/service/edit/${s._id}`)
+                  }
+                  className="bg-blue-500 text-white px-2 py-1 rounded"
+                >
+                  Edit
+                </button>
+
+                <button
+                  onClick={() => handleDelete(s._id)}
+                  className="bg-red-500 text-white px-2 py-1 rounded"
+                >
+                  Delete
+                </button>
 
               </div>
-            ))}
 
-          </div>
-        )}
+            </div>
+          ))}
 
-      </PageCard>
+        </div>
+      )}
+
     </div>
   );
 }

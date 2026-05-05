@@ -149,4 +149,27 @@ router.post(
   serviceController.suspendService
 );
 
+// ================= SELLER FILTER VIEWS =================
+
+router.get(
+  "/provider/active",
+  authMiddleware,
+  roleMiddleware("SELLER"),
+  serviceController.getMyActiveServices
+);
+
+router.get(
+  "/provider/pending",
+  authMiddleware,
+  roleMiddleware("SELLER"),
+  serviceController.getMyPendingServices
+);
+
+router.get(
+  "/provider/rejected",
+  authMiddleware,
+  roleMiddleware("SELLER"),
+  serviceController.getMyRejectedServices
+);
+
 module.exports = router;

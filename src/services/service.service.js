@@ -1,17 +1,44 @@
 import { createApiRequester } from "@/services/api";
 
-const serviceApi = createApiRequester("http://localhost:4003"); 
-// (change port if your service backend is different)
+const serviceApi = createApiRequester("http://localhost:4002");
 
+// ================= CORE =================
 function request(path, options = {}) {
-  return serviceApi(path, options).then((res) => {
-    return res?.data ?? res;
+  const isFormData = options.body instanceof FormData;
+
+  return serviceApi(path, {
+    ...options,
+    headers: {
+      ...(isFormData ? {} : { "Content-Type": "application/json" }),
+      ...(options.headers || {}),
+    },
+  }).then((res) => res?.data ?? res);
+}
+
+// ================= CREATE SERVICE =================
+export function createService(formData) {
+  return request("/api/service", {
+    method: "POST",
+    body: formData,
   });
 }
 
-// ===============================
-// SERVICES LIST
-// ===============================
+// ================= UPDATE SERVICE =================
+export function updateService(id, formData) {
+  return request(`/api/service/${id}`, {
+    method: "PUT",
+    body: formData,
+  });
+}
+
+// ================= DELETE SERVICE =================
+export function deleteService(id) {
+  return request(`/api/service/${id}`, {
+    method: "DELETE",
+  });
+}
+
+// ================= LIST =================
 export function getServices(params = {}) {
   const query = new URLSearchParams();
 
@@ -21,23 +48,27 @@ export function getServices(params = {}) {
     }
   });
 
-  return request(`/api/services?${query.toString()}`, {
+  return request(`/api/service?${query.toString()}`, {
     method: "GET",
   });
 }
 
-// ===============================
-// SERVICE DETAILS
-// ===============================
+// ================= SINGLE =================
 export function getServiceById(id) {
-  return request(`/api/services/${id}`, {
+  return request(`/api/service/${id}`, {
     method: "GET",
   });
 }
 
-// ===============================
-// SLOTS
-// ===============================
+// ================= MY SERVICES =================
+export function getMyServices(status = "") {
+  const q = status ? `?status=${status}` : "";
+  return request(`/api/services/provider/my-services`, {
+    method: "GET",
+  });
+}
+
+// ================= SLOTS =================
 export function getServiceSlots(id, filters) {
   const query = new URLSearchParams(filters).toString();
 
@@ -45,34 +76,18 @@ export function getServiceSlots(id, filters) {
     method: "GET",
   });
 }
- 
-// ===============================
-// SELLER SERVICES
-// ===============================
-export function getMyServices(params = {}) {
+export function getPendingServices(params = {}) {
   const query = new URLSearchParams(params).toString();
 
-  return request(`/api/services/my?${query}`, {
+  return request(`/api/services/admin/pending?${query}`, {
     method: "GET",
   });
 }
+export const getMyActiveServices = () =>
+  request("/api/services/provider/active");
 
-export function createService(formData) {
-  return request("/api/services", {
-    method: "POST",
-    body: formData,
-  });
-}
+export const getMyPendingServices = () =>
+  request("/api/services/provider/pending");
 
-export function updateService(id, formData) {
-  return request(`/api/services/${id}`, {
-    method: "PATCH",
-    body: formData,
-  });
-}
-
-export function deleteService(id) {
-  return request(`/api/services/${id}`, {
-    method: "DELETE",
-  });
-}
+export const getMyRejectedServices = () =>
+  request("/api/services/provider/rejected");
