@@ -12,27 +12,48 @@ const {
   approveSeller,
   getUserById,
   resendVerificationEmail,
-  getMySellerProfile,
-  getSellerByUserId
+  getSellerByUserId,
+  getAllSellers
 } = require("../controllers/auth.controller");
 
+// ✅ FIX: THIS WAS MISSING / BROKEN
 const authMiddleware = require("../middlewares/auth.middleware");
 const roleMiddleware = require("../middlewares/role.middleware");
 
 const upload = require("../middlewares/upload.middleware");
 
 
-// PUBLIC
+// ================= PUBLIC =================
 router.post("/register", registerUser);
 router.post("/login", login);
 
+router.get("/verify-email", verifyEmail);
 
-// ADMIN ONLY
+
+// ================= AUTH TEST =================
+router.get("/test", authMiddleware, testAuth);
+
+
+// ================= USERS =================
 router.get(
   "/users",
   authMiddleware,
   roleMiddleware("ADMIN"),
   getAllUsers
+);
+
+router.get("/users/:id", (req, res) => {
+  console.log("GET /users/:id called with ID:", req.params.id);
+  getUserById(req, res);
+});
+
+
+// ================= SELLER FLOW =================
+router.post(
+  "/register-seller",
+  authMiddleware,
+  roleMiddleware("BUYER"),
+  registerSeller
 );
 
 router.patch(
@@ -41,27 +62,18 @@ router.patch(
   roleMiddleware("ADMIN"),
   approveSeller
 );
-// AUTH TEST
+
 router.get(
-  "/test",
+  "/admin/sellers",
   authMiddleware,
-  testAuth
+  roleMiddleware("ADMIN"),
+  getAllSellers
 );
 
-router.get("/users/:id", (req, res) => {
-  console.log(" GET /users/:id called with ID:", req.params.id);
-  getUserById(req, res);
-});
-// BUYER → SELLER
-router.post(
-  "/register-seller",
-  authMiddleware,
-  roleMiddleware("BUYER"),
-  registerSeller
-);
-router.post("/resend-verification", resendVerificationEmail);
+router.get("/profile/:userId", getSellerByUserId);
 
-// PROFILE IMAGE
+
+// ================= PROFILE =================
 router.patch(
   "/profile-image",
   authMiddleware,
@@ -69,11 +81,8 @@ router.patch(
   uploadProfileImage
 );
 
-router.get(
-  "/profile/:userId",
-  getSellerByUserId
-);
 
-router.get("/verify-email", verifyEmail);
+// ================= OTHER =================
+router.post("/resend-verification", resendVerificationEmail);
 
 module.exports = router;

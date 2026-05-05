@@ -295,3 +295,35 @@ exports.getSellerByUserId = async (req, res) => {
     });
   }
 };
+
+// ================= GET ALL SELLERS (ADMIN) =================
+exports.getAllSellers = async (req, res) => {
+  try {
+    const Seller = require("../models/sellerProfile.model");
+
+    const sellers = await Seller.find()
+      .populate("userId", "name email role");
+
+    const formatted = sellers.map((s) => ({
+      _id: s._id,
+      userId: s.userId._id,
+      name: s.userId.name,
+      email: s.userId.email,
+      role: s.userId.role,
+      shopName: s.shopName,
+      shopDescription: s.shopDescription,
+      status: s.status,
+      createdAt: s.createdAt,
+    }));
+
+    res.status(200).json({
+      success: true,
+      sellers: formatted,
+    });
+
+  } catch (err) {
+    res.status(500).json({
+      message: err.message,
+    });
+  }
+};

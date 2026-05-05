@@ -28,31 +28,47 @@ export default function Navbar() {
     window.location.href = "/login";
   };
 
-  // 🔥 CLEAN ROLE-BASED LINKS
-  let links = [];
+  const role = user?.role;
 
-if (!user) {
-  links = [
+  // 🔥 ROLE BASED LINKS
+  let links = [
     { href: "/", label: "Home" },
     { href: "/products", label: "Products" },
-    { href: "/services", label: "Services" },
-    //{ href: "/become-seller", label: "Sell" },
-    { href: "/login", label: "Login" },
   ];
-} else {
-  links = [
-    { href: "/", label: "Home" },
-    { href: "/become-seller", label: "Sell" },
-    { href: "/services", label: "Services" },
-    { href: "/products", label: "Products" },
-  ];
-}
 
+  if (!user) {
+    links.push(
+      { href: "/services", label: "Services" },
+      { href: "/login", label: "Login" }
+    );
+  }
+
+  if (role === "BUYER") {
+    links.push(
+      { href: "/services", label: "Services" },
+      { href: "/become-seller", label: "Become Seller" }
+    );
+  }
+
+  if (role === "SELLER") {
+    links.push(
+      { href: "/seller/dashboard", label: "Seller Dashboard" },
+      { href: "/seller/products", label: "My Products" }
+    );
+  }
+
+  if (role === "ADMIN") {
+    links = [
+      { href: "/admin/sellers", label: "Admin Panel" },
+      { href: "/admin/products", label: "Moderation" },
+      { href: "/admin/reports", label: "Reports" },
+    ];
+  }
 
   return (
     <header className="sticky top-0 z-30 border-b border-gray-200 bg-white">
       <div className="mx-auto flex max-w-7xl items-center justify-between px-4 py-4">
-        
+
         {/* LOGO */}
         <Link href="/" className="text-xl font-bold">
           UniKart
@@ -61,61 +77,86 @@ if (!user) {
         {/* NAV */}
         <nav className="flex items-center gap-4">
 
-        {/* MAIN LINKS */}
-        {links?.map((link) => (
-          <Link
-            key={link.href}
-            href={link.href}
-            className="px-3 py-1 text-sm hover:text-orange-600"
-          >
-            {link.label}
-          </Link>
-        ))}
-
-        {/* LOGGED-IN FEATURES */}
-        {user && (
-          <>
-            <Link href="/cart" className="text-sm hover:text-orange-600">
-              🛒
+          {/* MAIN LINKS */}
+          {links.map((link) => (
+            <Link
+              key={link.href}
+              href={link.href}
+              className="px-3 py-1 text-sm hover:text-orange-600"
+            >
+              {link.label}
             </Link>
+          ))}
 
-            <Link href="/wishlist" className="text-sm hover:text-orange-600">
-              ❤️
-            </Link>
-
-            {/* 👤 PROFILE DROPDOWN */}
-            <div className="relative">
-              <button
-                onClick={() => setShowMenu(!showMenu)}
-                className="rounded bg-orange-500 px-3 py-1 text-white text-sm"
-              >
-                {user?.name || "Profile"} ⬇
-              </button>
-
-              {showMenu && (
-                <div className="absolute right-0 mt-2 w-40 bg-white border rounded shadow">
-                  
-                  <Link
-                    href="/dashboard"
-                    className="block px-4 py-2 text-sm hover:bg-gray-100"
-                  >
-                    Dashboard
+          {/* USER ACTIONS */}
+          {user && (
+            <>
+              {/* BUYER ONLY FEATURES */}
+              {role === "BUYER" && (
+                <>
+                  <Link href="/cart" className="text-sm hover:text-orange-600">
+                    🛒
                   </Link>
 
-                  <button
-                    onClick={handleLogout}
-                    className="block w-full text-left px-4 py-2 text-sm hover:bg-gray-100"
-                  >
-                    Logout
-                  </button>
-
-                </div>
+                  <Link href="/wishlist" className="text-sm hover:text-orange-600">
+                    ❤️
+                  </Link>
+                </>
               )}
-            </div>
-          </>
-        )}
 
-      </nav>
+              {/* PROFILE DROPDOWN */}
+              <div className="relative">
+                <button
+                  onClick={() => setShowMenu(!showMenu)}
+                  className="rounded bg-orange-500 px-3 py-1 text-white text-sm"
+                >
+                  {user?.name || "Profile"} ⬇
+                </button>
+
+                {showMenu && (
+                  <div className="absolute right-0 mt-2 w-44 bg-white border rounded shadow">
+
+                    {role !== "ADMIN" && (
+                      <Link
+                        href="/dashboard"
+                        className="block px-4 py-2 text-sm hover:bg-gray-100"
+                      >
+                        Dashboard
+                      </Link>
+                    )}
+
+                    {role === "SELLER" && (
+                      <Link
+                        href="/seller/dashboard"
+                        className="block px-4 py-2 text-sm hover:bg-gray-100"
+                      >
+                        Seller Panel
+                      </Link>
+                    )}
+
+                    {role === "ADMIN" && (
+                      <Link
+                        href="/admin/sellers"
+                        className="block px-4 py-2 text-sm hover:bg-gray-100"
+                      >
+                        Admin Panel
+                      </Link>
+                    )}
+
+                    <button
+                      onClick={handleLogout}
+                      className="block w-full text-left px-4 py-2 text-sm hover:bg-gray-100"
+                    >
+                      Logout
+                    </button>
+
+                  </div>
+                )}
+              </div>
+            </>
+          )}
+
+        </nav>
       </div>
     </header>
   );

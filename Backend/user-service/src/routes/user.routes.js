@@ -9,4 +9,5 @@ router.patch("/suspend/:id", moderationController.suspendUser);
 
 router.patch("/ban/:id", moderationController.banUser);
 
+
 module.exports = router;
