@@ -4,7 +4,11 @@ const cors = require("cors");
 const app = express();
 
 // ================= CORS =================
-app.use(cors());
+app.use(
+  cors({
+    origin: process.env.FRONTEND_URL || "http://localhost:3000",
+  })
+);
 
 // ================= IMPORTANT FIX =================
 // DO NOT parse JSON for multipart/form-data routes

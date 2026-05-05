@@ -45,3 +45,34 @@ export function getServiceSlots(id, filters) {
     method: "GET",
   });
 }
+ 
+// ===============================
+// SELLER SERVICES
+// ===============================
+export function getMyServices(params = {}) {
+  const query = new URLSearchParams(params).toString();
+
+  return request(`/api/services/my?${query}`, {
+    method: "GET",
+  });
+}
+
+export function createService(formData) {
+  return request("/api/services", {
+    method: "POST",
+    body: formData,
+  });
+}
+
+export function updateService(id, formData) {
+  return request(`/api/services/${id}`, {
+    method: "PATCH",
+    body: formData,
+  });
+}
+
+export function deleteService(id) {
+  return request(`/api/services/${id}`, {
+    method: "DELETE",
+  });
+}

@@ -53,7 +53,8 @@ export default function Navbar() {
   if (role === "SELLER") {
     links.push(
       { href: "/seller/dashboard", label: "Seller Dashboard" },
-      { href: "/seller/products", label: "My Products" }
+      { href: "/seller/products", label: "My Products" },
+      { href: "/seller/service", label: "My Service" }
     );
   }
 
