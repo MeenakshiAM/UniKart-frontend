@@ -9,15 +9,15 @@ const {
 
 // Create payment order
 router.post('/create-order', 
-  // authenticateUser,  // ← Commented out for testing
-  // validateCreateOrder,  // ← TEMPORARILY DISABLED
+  authenticateUser,  // ← Commented out for testing
+   validateCreateOrder,  // ← TEMPORARILY DISABLED
   paymentController.createOrder
 );
 
 // Confirm payment
 router.post('/confirm', 
-  // authenticateUser,  // ← Commented out for testing
-  // validatePaymentConfirmation,  // ← TEMPORARILY DISABLED
+   authenticateUser,  // ← Commented out for testing
+   validatePaymentConfirmation,  // ← TEMPORARILY DISABLED
   paymentController.confirmPayment
 );
 
@@ -26,7 +26,7 @@ router.post('/webhook', paymentController.handleWebhook);
 
 // Get payment details
 router.get('/:paymentId', 
-  // authenticateUser, 
+  authenticateUser, 
   paymentController.getPaymentDetails
 );
 

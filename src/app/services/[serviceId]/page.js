@@ -5,236 +5,231 @@ import EmptyState from "@/components/EmptyState";
 import PageHero from "@/components/PageHero";
 import Panel from "@/components/Panel";
 import StatusMessage from "@/components/StatusMessage";
+
 import { findDemoServiceById } from "@/data/demoCatalog";
 import { getServiceById, getServiceSlots } from "@/services/product.service";
 
 export default function ServiceDetailsPage({ params }) {
-  const [serviceState, setServiceState] = useState({
-    loading: true,
-    service: null,
-    error: "",
-  });
+  const [service, setService] = useState(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState("");
+
+  const [isDemo, setIsDemo] = useState(false);
+
   const [slotFilters, setSlotFilters] = useState({
     startDate: "",
     endDate: "",
   });
-  const [slotState, setSlotState] = useState({
-    loading: false,
-    slots: [],
-    error: "",
-  });
 
+  const [slots, setSlots] = useState([]);
+  const [slotLoading, setSlotLoading] = useState(false);
+  const [slotError, setSlotError] = useState("");
+
+  // 🔥 LOAD SERVICE
   useEffect(() => {
-    let isMounted = true;
+    const load = async () => {
+      setLoading(true);
 
-    const loadService = async () => {
-      const demoService = findDemoServiceById(params.serviceId);
+      const demo = findDemoServiceById(params.serviceId);
 
-      if (demoService) {
-        setServiceState({
-          loading: false,
-          service: demoService,
-          error: "",
-        });
+      if (demo) {
+        setService(demo);
+        setIsDemo(true);
+        setLoading(false);
         return;
       }
 
       try {
-        const data = await getServiceById(params.serviceId, true);
+        const res = await getServiceById(params.serviceId, true);
 
-        if (isMounted) {
-          setServiceState({
-            loading: false,
-            service: data?.data || null,
-            error: "",
-          });
-        }
-      } catch (error) {
-        if (isMounted) {
-          setServiceState({
-            loading: false,
-            service: null,
-            error: error.message || "Unable to load service.",
-          });
-        }
+        setService(res?.data || null);
+        setIsDemo(false);
+        setError("");
+      } catch (err) {
+        setError(err.message || "Failed to load service");
+      } finally {
+        setLoading(false);
       }
     };
 
-    loadService();
-
-    return () => {
-      isMounted = false;
-    };
+    load();
   }, [params.serviceId]);
 
-  const handleLoadSlots = async (event) => {
-    event.preventDefault();
+  // 🔥 LOAD SLOTS
+  const handleLoadSlots = async (e) => {
+    e.preventDefault();
 
-    if (findDemoServiceById(params.serviceId)) {
-      setSlotState({
-        loading: false,
-        slots: [],
-        error: "Demo services do not have live booking slots yet.",
-      });
+    if (isDemo) {
+      setSlotError("Demo services don’t support booking yet.");
       return;
     }
 
     if (!slotFilters.startDate || !slotFilters.endDate) {
-      setSlotState({
-        loading: false,
-        slots: [],
-        error: "Please choose both start date and end date.",
-      });
+      setSlotError("Select both dates.");
       return;
     }
 
-    setSlotState({
-      loading: true,
-      slots: [],
-      error: "",
-    });
+    setSlotLoading(true);
+    setSlotError("");
 
     try {
-      const data = await getServiceSlots(params.serviceId, slotFilters);
-      setSlotState({
-        loading: false,
-        slots: data?.data || [],
-        error: "",
-      });
-    } catch (error) {
-      setSlotState({
-        loading: false,
-        slots: [],
-        error: error.message || "Unable to load service slots.",
-      });
+      const res = await getServiceSlots(params.serviceId, slotFilters);
+      setSlots(res?.data || []);
+    } catch (err) {
+      setSlotError(err.message || "Failed to load slots");
+    } finally {
+      setSlotLoading(false);
     }
   };
 
-  if (serviceState.loading) {
-    return <div className="card-surface rounded-[2rem] p-8 text-sm text-[var(--muted)]">Loading service...</div>;
+  // 🔥 STATES
+  if (loading) {
+    return <div className="card-surface p-6">Loading service...</div>;
   }
 
-  if (serviceState.error || !serviceState.service) {
+  if (!service || error) {
     return (
       <EmptyState
         title="Service unavailable"
-        description={serviceState.error || "This service could not be loaded."}
+        description={error || "Service not found"}
       />
     );
   }
 
-  const service = serviceState.service;
-
+  // 🔥 UI
   return (
     <div className="space-y-6">
+
       <PageHero
         eyebrow="Service Details"
         title={service.title}
         subtitle={service.description}
       />
 
-      <div className="grid gap-6 lg:grid-cols-[1fr_0.9fr]">
+      <div className="grid lg:grid-cols-2 gap-6">
+
+        {/* LEFT */}
         <Panel>
-          <div className="space-y-5">
-            <div className="grid gap-4 sm:grid-cols-2">
-              <div>
-                <p className="text-sm text-[var(--muted)]">Category</p>
-                <p className="mt-2 font-semibold">{service.category}</p>
-              </div>
-              <div>
-                <p className="text-sm text-[var(--muted)]">Service Type</p>
-                <p className="mt-2 font-semibold">{service.serviceType}</p>
-              </div>
-              <div>
-                <p className="text-sm text-[var(--muted)]">Status</p>
-                <p className="mt-2 font-semibold">{service.status}</p>
-              </div>
-              <div>
-                <p className="text-sm text-[var(--muted)]">Base Price</p>
-                <p className="mt-2 font-semibold">
-                  {new Intl.NumberFormat("en-IN", { style: "currency", currency: "INR", maximumFractionDigits: 0 }).format(service?.pricing?.basePrice || 0)}
-                </p>
-              </div>
-            </div>
+          <div className="space-y-4">
 
-            <div>
-              <p className="text-sm text-[var(--muted)]">Location</p>
-              <p className="mt-2 leading-7">
-                {service?.location?.venue || "Venue not provided"}
-                {service?.location?.building ? `, ${service.location.building}` : ""}
-                {service?.location?.room ? `, ${service.location.room}` : ""}
-              </p>
-            </div>
+            <Info label="Category" value={service.category} />
+            <Info label="Type" value={service.serviceType} />
+            <Info label="Status" value={service.status} />
 
-            <div>
-              <p className="text-sm text-[var(--muted)]">Requirements</p>
-              <p className="mt-2 leading-7">
-                {service?.requirements?.length ? service.requirements.join(", ") : "No special requirements listed."}
-              </p>
-            </div>
+            <Info
+              label="Price"
+              value={formatCurrency(service?.pricing?.basePrice)}
+            />
+
+            <Info
+              label="Location"
+              value={formatLocation(service.location)}
+            />
+
+            <Info
+              label="Requirements"
+              value={
+                service?.requirements?.length
+                  ? service.requirements.join(", ")
+                  : "None"
+              }
+            />
+
           </div>
         </Panel>
 
+        {/* RIGHT */}
         <Panel>
-          <div className="space-y-5">
-            <h2 className="text-2xl font-semibold tracking-tight">View available slots</h2>
+          <h2 className="text-xl font-semibold mb-4">Available Slots</h2>
 
-            <form onSubmit={handleLoadSlots} className="grid gap-4">
-              <label className="block space-y-2">
-                <span className="text-sm font-medium">Start Date</span>
-                <input
-                  className="field"
-                  type="date"
-                  value={slotFilters.startDate}
-                  onChange={(event) => setSlotFilters((current) => ({ ...current, startDate: event.target.value }))}
-                />
-              </label>
+          <form onSubmit={handleLoadSlots} className="space-y-3">
 
-              <label className="block space-y-2">
-                <span className="text-sm font-medium">End Date</span>
-                <input
-                  className="field"
-                  type="date"
-                  value={slotFilters.endDate}
-                  onChange={(event) => setSlotFilters((current) => ({ ...current, endDate: event.target.value }))}
-                />
-              </label>
+            <input
+              type="date"
+              className="field"
+              value={slotFilters.startDate}
+              onChange={(e) =>
+                setSlotFilters((s) => ({ ...s, startDate: e.target.value }))
+              }
+            />
 
-              <button type="submit" className="btn-primary">
-                Load Slots
-              </button>
-            </form>
+            <input
+              type="date"
+              className="field"
+              value={slotFilters.endDate}
+              onChange={(e) =>
+                setSlotFilters((s) => ({ ...s, endDate: e.target.value }))
+              }
+            />
 
-            <StatusMessage type="error">{slotState.error}</StatusMessage>
+            <button className="btn-primary w-full">
+              Load Slots
+            </button>
+          </form>
 
-            {slotState.loading ? (
-              <p className="text-sm text-[var(--muted)]">Loading slots...</p>
-            ) : slotState.slots.length > 0 ? (
-              <div className="space-y-3">
-                {slotState.slots.map((slot) => (
-                  <div key={slot._id} className="rounded-[1.5rem] border border-[rgba(114,75,43,0.12)] bg-white/70 p-4">
-                    <p className="font-semibold">{new Date(slot.date).toLocaleDateString()}</p>
-                    <div className="mt-3 space-y-2 text-sm text-[var(--muted)]">
-                      {slot.timeSlots?.map((timeSlot) => (
-                        <div key={timeSlot._id} className="flex items-center justify-between gap-3 rounded-2xl bg-[rgba(118,86,66,0.06)] px-3 py-2">
-                          <span>
-                            {timeSlot.startTime} - {timeSlot.endTime}
-                          </span>
-                          <span>{timeSlot.status}</span>
-                        </div>
-                      ))}
+          <StatusMessage type="error">{slotError}</StatusMessage>
+
+          {slotLoading ? (
+            <p>Loading slots...</p>
+          ) : slots.length > 0 ? (
+            <div className="space-y-3 mt-4">
+              {slots.map((slot) => (
+                <div key={slot._id} className="border p-3 rounded">
+
+                  <p className="font-semibold">
+                    {new Date(slot.date).toDateString()}
+                  </p>
+
+                  {slot.timeSlots?.map((t) => (
+                    <div
+                      key={t._id}
+                      className="flex justify-between text-sm mt-2"
+                    >
+                      <span>{t.startTime} - {t.endTime}</span>
+                      <span>{t.status}</span>
                     </div>
-                  </div>
-                ))}
-              </div>
-            ) : (
-              <StatusMessage type="info">
-                Pick a date range to view slots. Booking is intentionally not implemented because the booking backend is not stable yet.
-              </StatusMessage>
-            )}
-          </div>
+                  ))}
+
+                </div>
+              ))}
+            </div>
+          ) : (
+            <p className="text-sm text-gray-500 mt-4">
+              No slots loaded
+            </p>
+          )}
+
+          {/* 🚧 FUTURE BOOKING */}
+          {!isDemo && slots.length > 0 && (
+            <button className="btn-primary w-full mt-4">
+              Book Now (Coming Soon)
+            </button>
+          )}
+
         </Panel>
+
       </div>
     </div>
   );
+}
+
+// 🔥 SMALL HELPERS
+function Info({ label, value }) {
+  return (
+    <div>
+      <p className="text-sm text-gray-500">{label}</p>
+      <p className="font-semibold">{value || "N/A"}</p>
+    </div>
+  );
+}
+
+function formatCurrency(amount) {
+  return new Intl.NumberFormat("en-IN", {
+    style: "currency",
+    currency: "INR",
+  }).format(amount || 0);
+}
+
+function formatLocation(loc = {}) {
+  return [loc.venue, loc.building, loc.room].filter(Boolean).join(", ") || "N/A";
 }

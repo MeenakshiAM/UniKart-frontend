@@ -6,7 +6,6 @@ import PageHero from "@/components/PageHero";
 import Pagination from "@/components/Pagination";
 import ServiceCard from "@/components/ServiceCard";
 import StatusMessage from "@/components/StatusMessage";
-import { demoServices, mergeCatalogItems } from "@/data/demoCatalog";
 import { getServices } from "@/services/product.service";
 
 export default function ServicesPage() {
@@ -24,13 +23,11 @@ export default function ServicesPage() {
     const loadServices = async () => {
       try {
         const data = await getServices({ page, limit: 9 });
-        const backendServices = data?.data || [];
-        const visibleServices = page === 1 ? mergeCatalogItems(backendServices, demoServices) : backendServices;
 
         if (isMounted) {
           setState({
             loading: false,
-            services: visibleServices,
+            services: data?.data || [], // ✅ ONLY backend data
             pagination: data?.pagination || null,
             error: "",
           });
@@ -39,7 +36,7 @@ export default function ServicesPage() {
         if (isMounted) {
           setState({
             loading: false,
-            services: page === 1 ? demoServices : [],
+            services: [], // ❌ no fallback fake data
             pagination: null,
             error: error.message || "Unable to load services.",
           });
@@ -59,17 +56,19 @@ export default function ServicesPage() {
       <PageHero
         eyebrow="Services"
         title="Browse services"
-        subtitle="This page intentionally uses only the stable basic listing endpoint and avoids broken nearby search, booking, and review flows."
+        subtitle="Explore all available services from the platform."
       />
 
       <StatusMessage type="error">{state.error}</StatusMessage>
 
       {state.loading ? (
-        <div className="card-surface rounded-[2rem] p-8 text-sm text-[var(--muted)]">Loading services...</div>
+        <div className="card-surface rounded-[2rem] p-8 text-sm text-[var(--muted)]">
+          Loading services...
+        </div>
       ) : state.services.length === 0 ? (
         <EmptyState
           title="No services found"
-          description="The backend did not return any active services right now."
+          description="No services are available right now."
         />
       ) : (
         <>
@@ -78,6 +77,7 @@ export default function ServicesPage() {
               <ServiceCard key={service._id} service={service} />
             ))}
           </div>
+
           <Pagination
             page={state.pagination?.page || page}
             totalPages={state.pagination?.totalPages || 1}

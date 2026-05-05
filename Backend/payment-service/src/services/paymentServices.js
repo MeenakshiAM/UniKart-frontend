@@ -21,7 +21,7 @@ class PaymentService {
         }
       }
 
-      const finalUserId = userId || 'test-user-123';
+      const finalUserId = userId ;
 
       const options = {
         amount: amount * 100,

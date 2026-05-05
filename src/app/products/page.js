@@ -1,206 +1,250 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import EmptyState from "@/components/EmptyState";
-import PageHero from "@/components/PageHero";
-import Pagination from "@/components/Pagination";
-import ProductCommerceActions from "@/components/ProductCommerceActions";
-import ProductCard from "@/components/ProductCard";
-import ProductFilters from "@/components/ProductFilters";
-import StatusMessage from "@/components/StatusMessage";
-import { demoProducts, mergeCatalogItems } from "@/data/demoCatalog";
-import { addToCart, getWishlist, toggleWishlist } from "@/services/cart.service";
+import Link from "next/link";
 import { getProducts } from "@/services/product.service";
+import { addToCart, toggleWishlist, getWishlist } from "@/services/cart.service";
 import { getToken } from "@/utils/auth";
-
-const initialFilters = {
-  search: "",
-  category: "",
-  minPrice: "",
-  maxPrice: "",
-  sort: "newest",
-};
+import { Search, ShoppingCart, Heart } from "lucide-react";
 
 export default function ProductsPage() {
-  const [filters, setFilters] = useState(initialFilters);
-  const [page, setPage] = useState(1);
-  const [state, setState] = useState({
-    loading: true,
-    products: [],
-    totalPages: 1,
-    error: "",
-  });
+  const [products, setProducts] = useState([]);
+  const [filtered, setFiltered] = useState([]);
+
+  const [search, setSearch] = useState("");
+  const [category, setCategory] = useState("");
+
   const [wishlistIds, setWishlistIds] = useState([]);
-  const [status, setStatus] = useState({ type: "info", message: "" });
-  const [busyAction, setBusyAction] = useState("");
-
-  const fetchProducts = async (pageNumber, activeFilters) => {
-    setState((current) => ({ ...current, loading: true, error: "" }));
-
-    try {
-      const data = await getProducts({
-        ...activeFilters,
-        page: pageNumber,
-        limit: 9,
-      });
-      const backendProducts = data?.products || [];
-      const visibleProducts = pageNumber === 1 ? mergeCatalogItems(backendProducts, demoProducts) : backendProducts;
-
-      setState({
-        loading: false,
-        products: visibleProducts,
-        totalPages: data?.totalPages || 1,
-        error: "",
-      });
-    } catch (error) {
-      setState({
-        loading: false,
-        products: pageNumber === 1 ? demoProducts : [],
-        totalPages: 1,
-        error: error.message || "Unable to load products.",
-      });
-    }
-  };
-
-  const loadWishlist = async () => {
-    if (!getToken()) {
-      setWishlistIds([]);
-      return;
-    }
-
-    try {
-      const data = await getWishlist();
-      setWishlistIds((Array.isArray(data) ? data : []).map((item) => item.productId));
-    } catch (error) {
-      setStatus({
-        type: "error",
-        message: error.message || "Unable to load wishlist state.",
-      });
-    }
-  };
+  const [busy, setBusy] = useState("");
+  const [message, setMessage] = useState("");
 
   useEffect(() => {
-    fetchProducts(page, filters);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [page]);
+    const load = async () => {
+      try {
+        const data = await getProducts();
+        const list = data?.products || [];
+        setProducts(list);
+        setFiltered(list);
+      } catch {
+        setProducts([]);
+      }
+    };
+
+    load();
+  }, []);
 
   useEffect(() => {
+    const loadWishlist = async () => {
+      if (!getToken()) return;
+
+      try {
+        const data = await getWishlist();
+        const ids = (Array.isArray(data) ? data : []).map(
+          (item) => item.productId
+        );
+        setWishlistIds(ids);
+      } catch {}
+    };
+
     loadWishlist();
   }, []);
 
+  useEffect(() => {
+    let result = [...products];
+
+    if (search) {
+      result = result.filter((p) =>
+        p.title.toLowerCase().includes(search.toLowerCase())
+      );
+    }
+
+    if (category) {
+      result = result.filter((p) => p.category === category);
+    }
+
+    setFiltered(result);
+  }, [search, category, products]);
+
+  const categories = [...new Set(products.map((p) => p.category))];
+
   const handleAddToCart = async (product) => {
-    const productPrice = product?.price?.finalPrice ?? product?.price?.basePrice ?? 0;
-    setBusyAction(`cart-${product._id}`);
-    setStatus({ type: "info", message: "" });
+    if (!getToken()) {
+      setMessage("Login required");
+      return;
+    }
+
+    setBusy(`cart-${product._id}`);
 
     try {
-      const data = await addToCart({
+      await addToCart({
         productId: product._id,
         quantity: 1,
-        priceAtTime: productPrice,
+        priceAtTime:
+          product.price?.finalPrice || product.price?.basePrice,
       });
 
-      const updatedItems = data?.data?.items || [];
-      const existingItem = updatedItems.find((item) => item.productId === product._id);
-
-      setStatus({
-        type: "success",
-        message: existingItem?.quantity > 1 ? "Cart quantity updated successfully." : "Product added to cart.",
-      });
-    } catch (error) {
-      setStatus({
-        type: "error",
-        message: error.message || "Unable to add this product to cart.",
-      });
+      setMessage("Added to cart 🛒");
+    } catch {
+      setMessage("Failed to add");
     } finally {
-      setBusyAction("");
+      setBusy("");
     }
   };
 
-  const handleToggleWishlist = async (product) => {
-    setBusyAction(`wishlist-${product._id}`);
-    setStatus({ type: "info", message: "" });
+  const handleWishlist = async (product) => {
+    if (!getToken()) {
+      setMessage("Login required");
+      return;
+    }
+
+    setBusy(`wish-${product._id}`);
 
     try {
-      const response = await toggleWishlist(product._id);
-      const message = response?.message || "Wishlist updated.";
+      await toggleWishlist(product._id);
 
-      setWishlistIds((current) =>
-        current.includes(product._id) ? current.filter((id) => id !== product._id) : [...current, product._id]
+      setWishlistIds((prev) =>
+        prev.includes(product._id)
+          ? prev.filter((id) => id !== product._id)
+          : [...prev, product._id]
       );
-      setStatus({
-        type: "success",
-        message,
-      });
-    } catch (error) {
-      setStatus({
-        type: "error",
-        message: error.message || "Unable to update wishlist.",
-      });
+
+      setMessage("Wishlist updated ❤️");
+    } catch {
+      setMessage("Failed");
     } finally {
-      setBusyAction("");
+      setBusy("");
     }
-  };
-
-  const handleSubmit = (event) => {
-    event.preventDefault();
-    setPage(1);
-    fetchProducts(1, filters);
-  };
-
-  const handleReset = () => {
-    setFilters(initialFilters);
-    setPage(1);
-    fetchProducts(1, initialFilters);
   };
 
   return (
-    <div className="space-y-6">
-      <PageHero
-        eyebrow="Marketplace"
-        title="Browse products"
-        subtitle="This page uses the stable product listing API and supports the exact backend query fields for category, search, price range, sort, and pagination."
-      />
+    <div className="px-6 py-10 max-w-7xl mx-auto">
 
-      <ProductFilters
-        filters={filters}
-        onChange={(key, value) => setFilters((current) => ({ ...current, [key]: value }))}
-        onSubmit={handleSubmit}
-        onReset={handleReset}
-      />
+      {/* TITLE */}
+      <h1 className="text-3xl font-bold text-center mb-8">
+        Explore Products 🛍️
+      </h1>
 
-      <StatusMessage type="error">{state.error}</StatusMessage>
-      <StatusMessage type={status.type}>{status.message}</StatusMessage>
+      {/* SEARCH + FILTER */}
+      <div className="flex flex-col md:flex-row gap-4 mb-10 justify-center">
 
-      {state.loading ? (
-        <div className="card-surface rounded-[2rem] p-8 text-sm text-[var(--muted)]">Loading products...</div>
-      ) : state.products.length === 0 ? (
-        <EmptyState
-          title="No products found"
-          description="Try adjusting the category, search, or price filters."
-        />
+        <div className="flex items-center border px-3 py-2 rounded-lg w-full max-w-md shadow-sm">
+          <Search size={18} />
+          <input
+            type="text"
+            placeholder="Search products..."
+            className="ml-2 w-full outline-none"
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+          />
+        </div>
+
+        <select
+          className="border px-3 py-2 rounded-lg shadow-sm"
+          value={category}
+          onChange={(e) => setCategory(e.target.value)}
+        >
+          <option value="">All Categories</option>
+          {categories.map((cat) => (
+            <option key={cat}>{cat}</option>
+          ))}
+        </select>
+
+      </div>
+
+      {/* PRODUCTS GRID */}
+      {filtered.length === 0 ? (
+        <p className="text-center text-gray-500">No products found</p>
       ) : (
-        <>
-          <div className="grid gap-5 md:grid-cols-2 xl:grid-cols-3">
-            {state.products.map((product) => (
-              <ProductCard
-                key={product._id}
-                product={product}
-                actionArea={
-                  <ProductCommerceActions
-                    product={product}
-                    isWishlisted={wishlistIds.includes(product._id)}
-                    busyAction={busyAction}
-                    onAddToCart={handleAddToCart}
-                    onToggleWishlist={handleToggleWishlist}
-                  />
-                }
-              />
-            ))}
-          </div>
+        <div className="grid gap-6 sm:grid-cols-2 md:grid-cols-3">
+          {filtered.map((product) => {
+            const price =
+              product.price?.finalPrice || product.price?.basePrice;
 
-          <Pagination page={page} totalPages={state.totalPages} onChange={setPage} />
-        </>
+            const isOutOfStock = product.quantity === 0;
+
+            return (
+              <div
+                key={product._id}
+                className="bg-white rounded-2xl shadow-sm hover:shadow-md transition p-4 flex flex-col"
+              >
+                {/* IMAGE */}
+                <Link href={`/products/${product._id}`}>
+                  <img
+                    src={product.images?.[0]?.url}
+                    className="w-full h-48 object-cover rounded-xl"
+                  />
+                </Link>
+
+                {/* INFO */}
+                <div className="mt-4 flex-1">
+                  <h2 className="font-semibold text-lg line-clamp-1">
+                    {product.title}
+                  </h2>
+
+                  <p className="text-xs text-gray-500 mt-1">
+                    {product.category}
+                  </p>
+
+                  <p className="font-bold text-xl mt-2">
+                    ₹{price}
+                  </p>
+
+                  {/* 🔥 QUANTITY */}
+                  <p
+                    className={`text-sm mt-1 ${
+                      isOutOfStock
+                        ? "text-red-500"
+                        : "text-green-600"
+                    }`}
+                  >
+                    {isOutOfStock
+                      ? "Out of Stock"
+                      : `In Stock: ${product.quantity}`}
+                  </p>
+                </div>
+
+                {/* ACTIONS */}
+                <div className="flex gap-2 mt-4">
+
+                  <button
+                    disabled={isOutOfStock}
+                    onClick={() => handleAddToCart(product)}
+                    className={`flex items-center justify-center gap-1 flex-1 py-2 rounded-lg text-sm text-white ${
+                      isOutOfStock
+                        ? "bg-gray-400 cursor-not-allowed"
+                        : "bg-orange-500 hover:bg-orange-600"
+                    }`}
+                  >
+                    <ShoppingCart size={16} />
+                    {busy === `cart-${product._id}` ? "..." : "Cart"}
+                  </button>
+
+                  <button
+                    onClick={() => handleWishlist(product)}
+                    className="flex items-center justify-center px-3 border rounded-lg"
+                  >
+                    <Heart
+                      size={16}
+                      fill={
+                        wishlistIds.includes(product._id)
+                          ? "black"
+                          : "none"
+                      }
+                    />
+                  </button>
+
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      )}
+
+      {/* MESSAGE */}
+      {message && (
+        <p className="text-center mt-6 text-sm text-gray-600">
+          {message}
+        </p>
       )}
     </div>
   );

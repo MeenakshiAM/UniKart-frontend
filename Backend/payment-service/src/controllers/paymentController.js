@@ -12,7 +12,7 @@ class PaymentController {
       
       const { orderId, amount, currency, userId, type = 'order' } = req.body;
       
-      const userIdToUse = userId || req.user?.id || 'test-user-123';
+      const userIdToUse = userId || req.user?.id ;
       
       console.log('Calling paymentService...');
 

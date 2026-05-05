@@ -2,31 +2,50 @@
 
 import { useCallback, useEffect, useState } from "react";
 import { Heart, Loader2, Trash2 } from "lucide-react";
-import EmptyState from "@/components/EmptyState";
-import PageHero from "@/components/PageHero";
-import Panel from "@/components/Panel";
+
 import ProtectedRoute from "@/components/ProtectedRoute";
-import StatusMessage from "@/components/StatusMessage";
 import { getWishlist, toggleWishlist } from "@/services/cart.service";
+import { getProductById } from "@/services/product.service";
 
 export default function WishlistPage() {
   const [wishlist, setWishlist] = useState([]);
   const [loading, setLoading] = useState(true);
-  const [status, setStatus] = useState({ type: "info", message: "" });
-  const [busyProductId, setBusyProductId] = useState("");
+  const [busy, setBusy] = useState("");
+  const [message, setMessage] = useState("");
 
+  // 🔥 LOAD WISHLIST + PRODUCT DETAILS
   const loadWishlist = useCallback(async () => {
     setLoading(true);
 
     try {
       const data = await getWishlist();
-      setWishlist(Array.isArray(data) ? data : []);
-      setStatus({ type: "info", message: "" });
-    } catch (error) {
-      setStatus({
-        type: "error",
-        message: error.message || "Unable to load wishlist.",
-      });
+      const raw = Array.isArray(data) ? data : [];
+
+      // 👉 fetch product details
+      const detailed = await Promise.all(
+        raw.map(async (item) => {
+          try {
+            const res = await getProductById(item.productId);
+            const product = res?.product;
+
+            return {
+              ...item,
+              title: product?.title,
+              image: product?.images?.[0]?.url,
+              price:
+                product?.price?.finalPrice ||
+                product?.price?.basePrice,
+            };
+          } catch {
+            return item;
+          }
+        })
+      );
+
+      setWishlist(detailed);
+
+    } catch {
+      setWishlist([]);
     } finally {
       setLoading(false);
     }
@@ -36,81 +55,91 @@ export default function WishlistPage() {
     loadWishlist();
   }, [loadWishlist]);
 
+  // ❌ REMOVE FROM WISHLIST
   const handleRemove = async (productId) => {
-    setBusyProductId(productId);
-    setStatus({ type: "info", message: "" });
+    setBusy(productId);
+    setMessage("");
 
     try {
-      const response = await toggleWishlist(productId);
-      setWishlist((current) => current.filter((item) => item.productId !== productId));
-      setStatus({
-        type: "success",
-        message: response?.message || "Wishlist updated.",
-      });
-    } catch (error) {
-      setStatus({
-        type: "error",
-        message: error.message || "Unable to update wishlist.",
-      });
+      await toggleWishlist(productId);
+
+      setWishlist((prev) =>
+        prev.filter((item) => item.productId !== productId)
+      );
+
+      setMessage("Removed from wishlist");
+    } catch {
+      setMessage("Failed to remove");
     } finally {
-      setBusyProductId("");
+      setBusy("");
     }
   };
 
   return (
     <ProtectedRoute>
-      <div className="space-y-6">
-        <PageHero
-          eyebrow="Wishlist"
-          title="Saved products"
-          subtitle="These entries are loaded from the wishlist-service endpoints exactly as returned by the backend."
-        />
+      <div className="max-w-6xl mx-auto px-6 py-10">
 
-        <StatusMessage type={status.type}>{status.message}</StatusMessage>
+        <h1 className="text-3xl font-bold mb-6 flex items-center gap-2">
+          <Heart /> Wishlist
+        </h1>
 
         {loading ? (
-          <div className="card-surface rounded-[2rem] p-8 text-sm text-[var(--muted)]">Loading wishlist...</div>
+          <p>Loading...</p>
         ) : wishlist.length === 0 ? (
-          <EmptyState
-            title="Your wishlist is empty"
-            description="Tap the heart icon on products you want to save for later."
-          />
+          <p className="text-gray-500">Your wishlist is empty</p>
         ) : (
-          <Panel>
-            <div className="space-y-4">
-              {wishlist.map((item) => (
-                <div
-                  key={item._id || item.productId}
-                  className="flex flex-col gap-4 rounded-[1.5rem] border border-[rgba(114,75,43,0.12)] bg-white/70 p-4 sm:flex-row sm:items-center sm:justify-between"
-                >
-                  <div className="flex items-start gap-3">
-                    <div className="rounded-2xl bg-[rgba(157,60,31,0.08)] p-3 text-[var(--brand)]">
-                      <Heart className="h-5 w-5 fill-current" />
-                    </div>
-                    <div>
-                      <p className="text-sm text-[var(--muted)]">Product ID</p>
-                      <p className="font-semibold break-all">{item.productId}</p>
-                    </div>
+          <div className="space-y-4">
+
+            {wishlist.map((item) => (
+              <div
+                key={item.productId}
+                className="flex items-center justify-between border p-4 rounded"
+              >
+
+                {/* LEFT */}
+                <div className="flex items-center gap-4">
+
+                  <img
+                    src={item.image || "https://via.placeholder.com/150"}
+                    className="w-20 h-20 object-cover rounded"
+                  />
+
+                  <div>
+                    <h2 className="font-semibold">
+                      {item.title || "Product"}
+                    </h2>
+
+                    <p className="text-sm text-gray-500">
+                      ₹{item.price || "N/A"}
+                    </p>
                   </div>
 
-                  <button
-                    type="button"
-                    onClick={() => handleRemove(item.productId)}
-                    disabled={busyProductId === item.productId}
-                    className="btn-secondary"
-                  >
-                    {busyProductId === item.productId ? (
-                      <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                    ) : (
-                      <Trash2 className="mr-2 h-4 w-4" />
-                    )}
-                    Remove
-                  </button>
                 </div>
-              ))}
-            </div>
-          </Panel>
+
+                {/* REMOVE */}
+                <button
+                  onClick={() => handleRemove(item.productId)}
+                  className="text-red-500 flex items-center gap-1"
+                >
+                  {busy === item.productId ? (
+                    <Loader2 className="animate-spin" size={18} />
+                  ) : (
+                    <Trash2 size={18} />
+                  )}
+                </button>
+
+              </div>
+            ))}
+
+          </div>
         )}
+
+        {message && (
+          <p className="mt-6 text-center text-sm text-gray-600">
+            {message}
+          </p>
+        )}
+
       </div>
     </ProtectedRoute>
   );
