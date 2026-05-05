@@ -2,6 +2,32 @@ import { createApiRequester } from "@/services/api";
 
 const productApi = createApiRequester("http://localhost:4002");
 
+// =====================================================
+// CORE REQUEST WRAPPER (FIXED RESPONSE NORMALIZER)
+// =====================================================
+function request(path, options = {}) {
+  const isFormData = options.body instanceof FormData;
+
+  return productApi(path, {
+    ...options,
+
+    headers: {
+      ...(isFormData
+        ? {} // browser handles multipart
+        : { "Content-Type": "application/json" }),
+
+      ...(options.headers || {}),
+    },
+  }).then((res) => {
+    // 🔥 NORMALIZE RESPONSE HERE (VERY IMPORTANT FIX)
+    // handles: axios / fetch / custom wrapper
+    return res?.data ?? res;
+  });
+}
+
+// =====================================================
+// PUBLIC PRODUCTS
+// =====================================================
 export function getProducts(params = {}) {
   const searchParams = new URLSearchParams();
 
@@ -12,104 +38,119 @@ export function getProducts(params = {}) {
   });
 
   const query = searchParams.toString();
-  return productApi(`/api/products${query ? `?${query}` : ""}`, { method: "GET" });
+
+  return request(`/api/products${query ? `?${query}` : ""}`, {
+    method: "GET",
+  });
 }
 
 export function getProductById(id) {
-  return productApi(`/api/products/${encodeURIComponent(id)}`, { method: "GET" });
+  return request(`/api/products/${encodeURIComponent(id)}`, {
+    method: "GET",
+  });
+}
+
+// =====================================================
+// SELLER PRODUCTS
+// =====================================================
+export function getMyProducts() {
+  return request("/api/products/my", { method: "GET" });
 }
 
 export function getProductsBySellerId(sellerId) {
-  return productApi(`/api/products/seller/${encodeURIComponent(sellerId)}`, { method: "GET" });
+  return request(`/api/products/seller/${encodeURIComponent(sellerId)}`, {
+    method: "GET",
+  });
 }
 
-export function getMyProducts() {
-  return productApi("/api/products/my", { method: "GET" });
-}
-
-export function getMyDrafts() {
-  return productApi("/api/products/my/drafts", { method: "GET" });
-}
-
-export function getDraftById(id) {
-  return productApi(`/api/products/my/drafts/${encodeURIComponent(id)}`, { method: "GET" });
-}
-
-export function getMyRejectedProducts() {
-  return productApi("/api/products/my/rejected", { method: "GET" });
-}
-
-export function getMyHiddenProducts() {
-  return productApi("/api/products/my/hidden", { method: "GET" });
-}
-
-export function getMyOutOfStockProducts() {
-  return productApi("/api/products/my/out-of-stock", { method: "GET" });
-}
-
+// =====================================================
+// CREATE PRODUCT
+// =====================================================
 export function createProduct(formData) {
-  return productApi("/api/products/create", {
+  return request("/api/products/create", {
     method: "POST",
     body: formData,
   });
 }
 
+// =====================================================
+// UPDATE / DELETE
+// =====================================================
 export function updateProduct(id, formData) {
-  return productApi(`/api/products/${encodeURIComponent(id)}`, {
+  return request(`/api/products/${encodeURIComponent(id)}`, {
     method: "PATCH",
     body: formData,
   });
 }
 
+export function deleteProduct(id) {
+  return request(`/api/products/${encodeURIComponent(id)}`, {
+    method: "DELETE",
+  });
+}
+
+// =====================================================
+// STATUS ACTIONS
+// =====================================================
 export function hideProduct(id) {
-  return productApi(`/api/products/${encodeURIComponent(id)}/hide`, {
+  return request(`/api/products/${encodeURIComponent(id)}/hide`, {
     method: "PATCH",
   });
 }
 
 export function unhideProduct(id) {
-  return productApi(`/api/products/${encodeURIComponent(id)}/unhide`, {
+  return request(`/api/products/${encodeURIComponent(id)}/unhide`, {
     method: "PATCH",
   });
 }
 
-export function deleteProduct(id) {
-  return productApi(`/api/products/${encodeURIComponent(id)}`, {
-    method: "DELETE",
-  });
+// =====================================================
+// FILTERS (SELLER SIDE)
+// =====================================================
+export function getMyDrafts() {
+  return request("/api/products/my/drafts", { method: "GET" });
 }
 
-export function getServices(params = {}) {
-  const searchParams = new URLSearchParams();
-
-  Object.entries(params).forEach(([key, value]) => {
-    if (value !== undefined && value !== null && value !== "") {
-      searchParams.set(key, value);
-    }
-  });
-
-  const query = searchParams.toString();
-  return productApi(`/api/services${query ? `?${query}` : ""}`, { method: "GET" });
+export function getMyRejectedProducts() {
+  return request("/api/products/my/rejected", { method: "GET" });
 }
 
-export function getServiceById(serviceId, view) {
-  const query = view ? "?view=true" : "";
-  return productApi(`/api/services/${encodeURIComponent(serviceId)}${query}`, {
+export function getMyHiddenProducts() {
+  return request("/api/products/my/hidden", { method: "GET" });
+}
+
+export function getMyOutOfStockProducts() {
+  return request("/api/products/my/out-of-stock", { method: "GET" });
+}
+
+export function getMyPendingProducts() {
+  return request("/api/products/my/pending", { method: "GET" });
+}
+
+// =====================================================
+// ADMIN MODERATION (FIXED)
+// =====================================================
+export function getPendingProducts() {
+  return request("/api/products/admin/pending", {
     method: "GET",
   });
 }
 
-export function getServiceSlots(serviceId, params = {}) {
-  const searchParams = new URLSearchParams();
-
-  Object.entries(params).forEach(([key, value]) => {
-    if (value !== undefined && value !== null && value !== "") {
-      searchParams.set(key, value);
-    }
-  });
-
-  const query = searchParams.toString();
-  return productApi(`/api/services/${encodeURIComponent(serviceId)}/slots${query ? `?${query}` : ""}`, {
+export function getRejectedProducts() {
+  return request("/api/products/admin/rejected", {
     method: "GET",
+  });
+}
+
+export function approveProduct(id) {
+  return request(`/api/products/approve/${encodeURIComponent(id)}`, {
+    method: "PATCH",
+  });
+}
+
+export function rejectProduct(id, reason) {
+  return request(`/api/products/reject/${encodeURIComponent(id)}`, {
+    method: "PATCH",
+    body: JSON.stringify({ reason }),
   });
 }

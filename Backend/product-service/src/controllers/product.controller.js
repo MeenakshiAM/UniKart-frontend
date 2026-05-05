@@ -1,195 +1,183 @@
 const productService = require("../services/product.service");
-const {
-  createProduct,
-  getMyProducts,
-  getAllActiveProducts,
-  getProductsBySellerId,
-  getProductById,
-  updateProduct,
-  deleteProduct,
-  hideProduct,
-  unhideProduct,
-  getMyDrafts,
-  getDraftById,
-  getMyRejectedProducts,
-  getMyHiddenProducts,
-  getMyOutOfStock,
-  resubmitProductService, // <--- add this
-  reduceProductStock, // adjust names if needed
-  restoreProductStock,
-  adminHideProduct,
-  approveProduct,
-  rejectProduct
-} = require("../services/product.service");
-// Create Product
+const cloudinary = require("../config/cloudinary");
+
+// ===============================
+// CREATE PRODUCT
+// ===============================
 exports.createProduct = async (req, res) => {
   try {
-//console.log("hey im inside the catch error of contoller 111 !!")
     const sellerId = req.user?.userId || req.body.userId;
 
     const images = req.files
-      ? req.files.map(file =>({
-      url: file.path,
-      public_id: file.filename
-    }))
-  : [];
-//console.log("hey im inside the catch error of contoller !!")
+      ? req.files.map(file => ({
+          url: file.path,
+          public_id: file.filename,
+        }))
+      : [];
+
     const productData = {
       ...req.body,
-      images
+      images,
     };
-    console.log("hey im gonna enter the service  !!")
-    const result = await productService.createProductService(productData, sellerId);
-    console.log("hey outside the service  !!")
+
+    const result = await productService.createProductService(
+      productData,
+      sellerId
+    );
+
     res.status(201).json({
       success: true,
       message: "Product created successfully",
-      product: result.product
+      product: result.product,
     });
-
   } catch (error) {
-    console.log("hey im inside the catch error of contoller !!")
-    console.error("CREATE PRODUCT ERROR:");
-    console.error(error);
-
     res.status(500).json({
       success: false,
-      message: error.message
+      message: error.message,
     });
-
   }
 };
 
-// Get single product by ID - Public
+// ===============================
+// GET SINGLE PRODUCT
+// ===============================
 exports.getProductById = async (req, res) => {
   try {
-    const { id } = req.params;
-    const product = await productService.getProductByIdService(id);
+    const product = await productService.getProductByIdService(req.params.id);
 
-    res.status(200).json({ success: true, product });
-
+    res.status(200).json({
+      success: true,
+      product,
+    });
   } catch (error) {
-    console.log("GET PRODUCT BY ID ERROR:", error.message);
-    const status = error.message.includes("Invalid") ? 400
-      : error.message.includes("not found") ? 404
-      : 500;
-    res.status(status).json({ success: false, message: error.message });
+    res.status(400).json({
+      success: false,
+      message: error.message,
+    });
   }
 };
 
-// Seller dashboard - own products
-exports.getMyProducts = async (req, res) => {
+// ===============================
+// GET PRODUCT BY SELLER (PUBLIC)
+// ===============================
+exports.getProductsBySellerId = async (req, res) => {
   try {
-    const sellerId = req.user.userId;
-    const products = await productService.getMyProductsService(sellerId);
+    const products = await productService.getProductsBySellerIdService(
+      req.params.sellerId
+    );
 
     res.status(200).json({
       success: true,
       count: products.length,
-      products
+      products,
     });
-   
   } catch (error) {
-    console.log("hey im inside the catch error of contoller !!")
-    console.log("GET MY PRODUCTS ERROR:", error.message);
-    res.status(500).json({ success: false, message: "Server error" });
+    res.status(400).json({
+      success: false,
+      message: error.message,
+    });
   }
 };
 
-// Marketplace - Active only with search/filter
+// ===============================
+// GET MY PRODUCTS
+// ===============================
+exports.getMyProducts = async (req, res) => {
+  try {
+    const products = await productService.getMyProductsService(req.user.userId);
+
+    res.status(200).json({
+      success: true,
+      count: products.length,
+      products,
+    });
+  } catch (error) {
+    res.status(500).json({
+      success: false,
+      message: error.message,
+    });
+  }
+};
+
+// ===============================
+// GET ACTIVE PRODUCTS
+// ===============================
 exports.getAllActiveProducts = async (req, res) => {
   try {
     const result = await productService.getAllActiveProductsService(req.query);
 
     res.status(200).json({
       success: true,
-      ...result  // gives you products, total, page, totalPages
+      ...result,
     });
-
   } catch (error) {
-    console.log("GET ACTIVE PRODUCTS ERROR:", error.message);
-    res.status(500).json({ success: false, message: "Server error" });
-  }
-};
-// Public - Seller profile view
-exports.getProductsBySellerId = async (req, res) => {
-  try {
-    const { sellerId } = req.params;
-    const products = await productService.getProductsBySellerIdService(sellerId);
-
-    res.status(200).json({
-      success: true,
-      count: products.length,
-      products
+    res.status(500).json({
+      success: false,
+      message: error.message,
     });
-
-  } catch (error) {
-    console.log("GET SELLER PRODUCTS ERROR:", error.message);
-    const status = error.message.includes("Invalid") ? 400 : 500;
-    res.status(status).json({ success: false, message: error.message });
   }
 };
 
-// Update Product
-const cloudinary = require("../config/cloudinary");
-
+// ===============================
+// UPDATE PRODUCT
+// ===============================
 exports.updateProduct = async (req, res) => {
   try {
     const sellerId = req.user.userId;
     const { id } = req.params;
 
-    // prepare new images if uploaded
     const newImages = req.files
-      ? req.files.map(file => ({ url: file.path, public_id: file.filename }))
+      ? req.files.map(file => ({
+          url: file.path,
+          public_id: file.filename,
+        }))
       : undefined;
 
     if (newImages) {
-      // fetch old product to delete images
       const oldProduct = await productService.getProductByIdService(id);
 
-      if (oldProduct.images && oldProduct.images.length > 0) {
+      if (oldProduct.images?.length) {
         for (const img of oldProduct.images) {
           await cloudinary.uploader.destroy(img.public_id);
         }
       }
     }
 
-    const updatedProductData = {
+    const updatedData = {
       ...req.body,
-      ...(newImages && { images: newImages })
+      ...(newImages && { images: newImages }),
     };
 
     const updatedProduct = await productService.updateProductService(
       id,
       sellerId,
-      updatedProductData
+      updatedData
     );
 
     res.status(200).json({
       success: true,
       message: "Product updated successfully",
-      product: updatedProduct
+      product: updatedProduct,
     });
-
   } catch (error) {
-    console.log("UPDATE PRODUCT ERROR:", error.message);
-    const status = error.message.includes("not found") ? 404
-      : error.message.includes("rejected") ? 400
-      : error.message.includes("Invalid") ? 400
-      : 500;
-    res.status(status).json({ success: false, message: error.message });
+    res.status(400).json({
+      success: false,
+      message: error.message,
+    });
   }
 };
 
-// Delete Product
+// ===============================
+// DELETE PRODUCT
+// ===============================
 exports.deleteProduct = async (req, res) => {
   try {
     const sellerId = req.user.userId;
     const { id } = req.params;
 
-    // fetch product to delete images
     const product = await productService.getProductByIdService(id);
-    if (product.images && product.images.length > 0) {
+
+    if (product.images?.length) {
       for (const img of product.images) {
         await cloudinary.uploader.destroy(img.public_id);
       }
@@ -199,280 +187,243 @@ exports.deleteProduct = async (req, res) => {
 
     res.status(200).json({
       success: true,
-      message: "Product deleted successfully"
+      message: "Product deleted successfully",
     });
-
   } catch (error) {
-    console.log("DELETE PRODUCT ERROR:", error.message);
-    const status = error.message.includes("Invalid") ? 400
-      : error.message.includes("not found") ? 404
-      : 500;
-    res.status(status).json({ success: false, message: error.message });
-  }
-};
-// Hide Product
-exports.hideProduct = async (req, res) => {
-  try {
-    const sellerId = req.user.userId;
-    const { id } = req.params;
-    const product = await productService.hideProductService(id, sellerId);
-
-    res.status(200).json({
-      success: true,
-      message: "Product hidden",
-      product
-    });
-
-  } catch (error) {
-    console.log("HIDE PRODUCT ERROR:", error.message);
-    const status = error.message.includes("Invalid") ? 400
-      : error.message.includes("not found") ? 404
-      : 500;
-    res.status(status).json({ success: false, message: error.message });
-  }
-};
-
-// Unhide Product
-exports.unhideProduct = async (req, res) => {
-  try {
-    const sellerId = req.user.userId;
-    const { id } = req.params;
-    const product = await productService.unhideProductService(id, sellerId);
-
-    res.status(200).json({
-      success: true,
-      message: "Product is now active",
-      product
-    });
-
-  } catch (error) {
-    console.log("UNHIDE PRODUCT ERROR:", error.message);
-    const status = error.message.includes("Invalid") ? 400
-      : error.message.includes("not found") ? 404
-      : 500;
-    res.status(status).json({ success: false, message: error.message });
-  }
-};
-
-// Get my drafts
-exports.getMyDrafts = async (req, res) => {
-  try {
-    const sellerId = req.user.userId;
-    const products = await productService.getMyDraftsService(sellerId);
-
-    res.status(200).json({
-      success: true,
-      count: products.length,
-      products
-    });
-
-  } catch (error) {
-    console.log("GET MY DRAFTS ERROR:", error.message);
-    res.status(500).json({ success: false, message: "Server error" });
-  }
-};
-
-// Get draft by ID
-exports.getDraftById = async (req, res) => {
-  try {
-    const sellerId = req.user.userId;
-    const { id } = req.params;
-    const product = await productService.getDraftByIdService(id, sellerId);
-
-    res.status(200).json({ success: true, product });
-
-  } catch (error) {
-    console.log("GET DRAFT BY ID ERROR:", error.message);
-    const status = error.message.includes("Invalid") ? 400
-      : error.message.includes("not found") ? 404
-      : 500;
-    res.status(status).json({ success: false, message: error.message });
-  }
-};
-
-// Get my rejected products
-exports.getMyRejectedProducts = async (req, res) => {
-  try {
-    const sellerId = req.user.userId;
-    const products = await productService.getMyRejectedProductsService(sellerId);
-
-    res.status(200).json({
-      success: true,
-      count: products.length,
-      products
-    });
-
-  } catch (error) {
-    console.log("GET REJECTED PRODUCTS ERROR:", error.message);
-    res.status(500).json({ success: false, message: "Server error" });
-  }
-};
-
-// Get my hidden products
-exports.getMyHiddenProducts = async (req, res) => {
-  try {
-    const sellerId = req.user.userId;
-    const products = await productService.getMyHiddenProductsService(sellerId);
-
-    res.status(200).json({
-      success: true,
-      count: products.length,
-      products
-    });
-
-  } catch (error) {
-    console.log("GET HIDDEN PRODUCTS ERROR:", error.message);
-    res.status(500).json({ success: false, message: "Server error" });
-  }
-};
-
-exports.resubmitProduct = async (req, res) => {
-  try {
-    const { id } = req.params;
-    const updateData = req.body;
-    const sellerId = req.user._id;
-
-    const product = await resubmitProductService(id, sellerId, updateData);
-
-    res.status(200).json({
-      success: true,
-      message: "Product resubmitted for admin approval",
-      product
-    });
-  } catch (err) {
     res.status(400).json({
       success: false,
-      message: err.message
+      message: error.message,
     });
   }
 };
-// Reduce stock - called internally by order service
-exports.reduceStock = async (req, res) => {
+
+// ===============================
+// HIDE / UNHIDE
+// ===============================
+exports.hideProduct = async (req, res) => {
   try {
-    const { id } = req.params;
-    const { quantity } = req.body;
+    const product = await productService.hideProductService(
+      req.params.id,
+      req.user.userId
+    );
 
-    const product = await productService.reduceProductStock(id, quantity);
-
-    res.status(200).json({
-      success: true,
-      message: "Stock updated",
-      remainingStock: product.quantity
-    });
-
+    res.json({ success: true, product });
   } catch (error) {
-    console.log("REDUCE STOCK ERROR:", error.message);
-    const status = error.message.includes("Invalid") ? 400
-      : error.message.includes("not found") ? 404
-      : error.message.includes("Insufficient") ? 400
-      : 500;
-    res.status(status).json({ success: false, message: error.message });
+    res.status(400).json({ success: false, message: error.message });
   }
 };
 
-// Restore stock - called internally when order is cancelled
-exports.restoreStock = async (req, res) => {
+exports.unhideProduct = async (req, res) => {
   try {
-    const { id } = req.params;
-    const { quantity } = req.body;
+    const product = await productService.unhideProductService(
+      req.params.id,
+      req.user.userId
+    );
 
-    const product = await productService.restoreProductStock(id, quantity);
-
-    res.status(200).json({
-      success: true,
-      message: "Stock restored",
-      remainingStock: product.quantity
-    });
-
+    res.json({ success: true, product });
   } catch (error) {
-    console.log("RESTORE STOCK ERROR:", error.message);
-    const status = error.message.includes("Invalid") ? 400
-      : error.message.includes("not found") ? 404
-      : 500;
-    res.status(status).json({ success: false, message: error.message });
+    res.status(400).json({ success: false, message: error.message });
   }
 };
 
-// Admin hide — called internally by report automation
-exports.adminHideProduct = async (req, res) => {
+// ===============================
+// DRAFTS
+// ===============================
+exports.getMyDrafts = async (req, res) => {
   try {
-    const { id } = req.params;
-    const product = await productService.adminHideProductService(id);
+    const products = await productService.getMyDraftsService(req.user.userId);
 
-    res.status(200).json({
-      success: true,
-      message: "Product hidden by admin",
-      product
-    });
-
+    res.json({ success: true, products });
   } catch (error) {
-    console.log("ADMIN HIDE ERROR:", error.message);
-    const status = error.message.includes("not found") ? 404 : 500;
-    res.status(status).json({ success: false, message: error.message });
+    res.status(500).json({ success: false, message: error.message });
   }
 };
 
-// Get my out of stock products
+exports.getDraftById = async (req, res) => {
+  try {
+    const product = await productService.getDraftByIdService(
+      req.params.id,
+      req.user.userId
+    );
+
+    res.json({ success: true, product });
+  } catch (error) {
+    res.status(400).json({ success: false, message: error.message });
+  }
+};
+
+// ===============================
+// REJECTED / HIDDEN / OUT OF STOCK
+// ===============================
+exports.getMyRejectedProducts = async (req, res) => {
+  try {
+    const products = await productService.getMyRejectedProductsService(
+      req.user.userId
+    );
+
+    res.json({ success: true, products });
+  } catch (error) {
+    res.status(500).json({ success: false });
+  }
+};
+
+exports.getMyHiddenProducts = async (req, res) => {
+  try {
+    const products = await productService.getMyHiddenProductsService(
+      req.user.userId
+    );
+
+    res.json({ success: true, products });
+  } catch (error) {
+    res.status(500).json({ success: false });
+  }
+};
+
 exports.getMyOutOfStock = async (req, res) => {
   try {
-    const sellerId = req.user.userId;
-    const products = await productService.getMyOutOfStockService(sellerId);
+    const products = await productService.getMyOutOfStockService(
+      req.user.userId
+    );
 
-    res.status(200).json({
-      success: true,
-      count: products.length,
-      products
-    });
-
+    res.json({ success: true, products });
   } catch (error) {
-    console.log("GET OUT OF STOCK ERROR:", error.message);
-    res.status(500).json({ success: false, message: "Server error" });
+    res.status(500).json({ success: false });
   }
 };
-exports.getProductByIdForSellerService = async (productId, sellerId) => {
 
-  validateObjectId(productId, "product ID");
+// ===============================
+// RESUBMIT
+// ===============================
+exports.resubmitProduct = async (req, res) => {
+  try {
+    const product = await productService.resubmitProductService(
+      req.params.id,
+      req.user.userId,
+      req.body
+    );
 
-  const product = await Product.findOne({
-    _id: productId,
-    sellerId
-  });
-
-  if (!product) {
-    throw new Error("Product not found or unauthorized");
+    res.json({
+      success: true,
+      message: "Product resubmitted successfully",
+      product,
+    });
+  } catch (error) {
+    res.status(400).json({ success: false, message: error.message });
   }
-
-  return product;
 };
 
+// ===============================
+// STOCK
+// ===============================
+exports.reduceStock = async (req, res) => {
+  try {
+    const product = await productService.reduceProductStock(
+      req.params.id,
+      req.body.quantity
+    );
 
-// ─── Approve product ───────────────────────────────
+    res.json({
+      success: true,
+      remainingStock: product.quantity,
+    });
+  } catch (error) {
+    res.status(400).json({ success: false, message: error.message });
+  }
+};
+
+exports.restoreStock = async (req, res) => {
+  try {
+    const product = await productService.restoreProductStock(
+      req.params.id,
+      req.body.quantity
+    );
+
+    res.json({
+      success: true,
+      remainingStock: product.quantity,
+    });
+  } catch (error) {
+    res.status(400).json({ success: false, message: error.message });
+  }
+};
+
+// ===============================
+// ADMIN HIDE
+// ===============================
+exports.adminHideProduct = async (req, res) => {
+  try {
+    const product = await productService.adminHideProductService(req.params.id);
+
+    res.json({
+      success: true,
+      product,
+    });
+  } catch (error) {
+    res.status(400).json({ success: false, message: error.message });
+  }
+};
+
+// ===============================
+// ADMIN APPROVE / REJECT
+// ===============================
 exports.approveProduct = async (req, res) => {
   try {
-    const { id } = req.params;
-    const product = await productService.approveProductService(id);
-    res.status(200).json({
+    const product = await productService.approveProductService(req.params.id);
+
+    res.json({
       success: true,
-      message: "Product approved successfully",
-      product
+      product,
     });
-  } catch (err) {
-    res.status(400).json({ success: false, message: err.message });
+  } catch (error) {
+    res.status(400).json({ success: false, message: error.message });
   }
 };
 
-// ─── Reject product ───────────────────────────────
 exports.rejectProduct = async (req, res) => {
   try {
-    const { id } = req.params;
-    const { reason } = req.body;
-    const product = await productService.rejectProductService(id, reason);
-    res.status(200).json({
+    const product = await productService.rejectProductService(
+      req.params.id,
+      req.body.reason
+    );
+
+    res.json({
       success: true,
-      message: "Product rejected successfully",
-      product
+      product,
     });
-  } catch (err) {
-    res.status(400).json({ success: false, message: err.message });
+  } catch (error) {
+    res.status(400).json({ success: false, message: error.message });
+  }
+};
+
+// ===============================
+// ADMIN LISTS
+// ===============================
+exports.getPendingProducts = async (req, res) => {
+  try {
+    const products = await productService.getPendingProductsService();
+
+    res.json({ success: true, products });
+  } catch (error) {
+    res.status(500).json({ success: false, message: error.message });
+  }
+};
+
+exports.getRejectedProducts = async (req, res) => {
+  try {
+    const products = await productService.getRejectedProductsService();
+
+    res.json({ success: true, products });
+  } catch (error) {
+    res.status(500).json({ success: false, message: error.message });
+  }
+};
+
+exports.getMyPendingProducts = async (req, res) => {
+  try {
+    const products = await productService.getMyPendingProducts(req.user.userId);
+
+    res.json({ success: true, products });
+  } catch (error) {
+    res.status(500).json({ success: false, message: error.message });
   }
 };

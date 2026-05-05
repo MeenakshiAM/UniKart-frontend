@@ -19,14 +19,23 @@ function safeParseJson(text) {
 // ---------------- core requester ----------------
 export function createApiRequester(baseUrl = DEFAULT_BASE_URL) {
   return async function apiRequest(path, options = {}) {
+
+    // ✅ FIX: detect FormData safely
+    const isFormData =
+      typeof FormData !== "undefined" &&
+      options.body instanceof FormData;
+
     const headers = getAuthHeaders({
-      "Content-Type": "application/json",
+      ...(isFormData ? {} : { "Content-Type": "application/json" }),
       ...(options.headers || {}),
     });
 
     const response = await fetch(`${baseUrl}${path}`, {
       ...options,
       headers,
+
+      // ⚠️ IMPORTANT: NEVER stringify FormData
+      body: options.body,
     });
 
     const text = await response.text();
@@ -50,7 +59,7 @@ export function createApiRequester(baseUrl = DEFAULT_BASE_URL) {
 // ---------------- SINGLE INSTANCE ----------------
 export const apiRequest = createApiRequester();
 
-// ---------------- CLEAN WRAPPER (for your admin page) ----------------
+// ---------------- CLEAN WRAPPER ----------------
 export const API = {
   get: (url) => apiRequest(url, { method: "GET" }),
 

@@ -10,6 +10,7 @@ class ModerationService {
         "http://localhost:4003/api/moderation/analyze",
         { text }
       );
+      console.log(response);
 
       return response.data;
 

@@ -7,7 +7,9 @@ import ProductCard from "@/components/ProductCard";
 
 import { getStoredUser } from "@/utils/auth";
 import { getPublicSellerProfile } from "@/services/auth.service";
-import { getProductsBySellerId } from "@/services/product.service";
+
+// ✅ FIX: use JWT-based API call instead of sellerId version
+import { getMyProducts } from "@/services/product.service";
 
 export default function SellerDashboardPage() {
   const [seller, setSeller] = useState(null);
@@ -21,10 +23,10 @@ export default function SellerDashboardPage() {
         const user = getStoredUser();
 
         if (!user?.id) {
-          throw new Error("User not found");
+          throw new Error("User not found in storage");
         }
 
-        // 🔥 GET SELLER PROFILE
+        // 🔥 SELLER PROFILE
         const sellerRes = await getPublicSellerProfile(user.id);
 
         const sellerData =
@@ -35,12 +37,14 @@ export default function SellerDashboardPage() {
 
         setSeller(sellerData);
 
-        // 🔥 GET PRODUCTS
-        const productRes = await getProductsBySellerId(user.id);
+        // 🔥 PRODUCTS (FIXED)
+        // ❌ removed getProductsBySellerId(user.id)
+        // ✅ now uses JWT-based endpoint
+        const productRes = await getMyProducts();
 
         setProducts(productRes?.products || []);
       } catch (err) {
-        console.log(err);
+        console.log("Dashboard load error:", err);
       } finally {
         setLoading(false);
       }
@@ -97,7 +101,7 @@ export default function SellerDashboardPage() {
             </p>
           </div>
 
-          {/* PRODUCTS */}
+          {/* PRODUCTS COUNT */}
           <div className="p-4 border rounded-lg">
             <p className="text-sm text-gray-500">Products</p>
             <p className="text-xl font-bold">{products.length}</p>
@@ -124,21 +128,35 @@ export default function SellerDashboardPage() {
       </PageCard>
 
       {/* PRODUCTS SECTION */}
-      <PageCard title="Your Products">
+      {/* PRODUCTS SECTION */}
+<PageCard title="Your Products">
 
-        {products.length === 0 ? (
-          <StatusMessage type="info">
-            You haven't added any products yet
-          </StatusMessage>
-        ) : (
-          <div className="grid gap-5 md:grid-cols-2 xl:grid-cols-3">
-            {products.map((product) => (
-              <ProductCard key={product._id} product={product} />
-            ))}
-          </div>
-        )}
+  {/* 🔥 ADD THIS BUTTON */}
+  <div className="flex justify-end mb-4">
+    <a
+      href="/dashboard/products/create"
+      className="px-4 py-2 bg-black text-white rounded-md hover:bg-gray-800 transition"
+    >
+      + Create Product
+    </a>
+  </div>
 
-      </PageCard>
+  {products.length === 0 ? (
+    <StatusMessage type="info">
+      You haven't added any products yet
+    </StatusMessage>
+  ) : (
+    <div className="grid gap-5 md:grid-cols-2 xl:grid-cols-3">
+      {products.map((product) => (
+        <ProductCard
+          key={product._id}
+          product={product}
+        />
+      ))}
+    </div>
+  )}
+
+</PageCard>
 
     </div>
   );

@@ -24,19 +24,37 @@ const {
   restoreStock,
   adminHideProduct,
   approveProduct,
-  rejectProduct
+  rejectProduct,
+  getPendingProducts,
+  getMyPendingProducts,
+  getRejectedProducts
+
 } = require("../controllers/product.controller");
 
 const upload = require("../middlewares/upload.middleware");
 
 
+
+router.get(
+  "/my/pending",
+  authMiddleware,
+  getMyPendingProducts
+);
 // ─────────────────────────────────────────────
 // SELLER CREATE PRODUCT
 // ─────────────────────────────────────────────
+
+router.get(
+  "/admin/pending",
+  authMiddleware,
+  roleMiddleware("ADMIN"),
+  getPendingProducts
+);
+
 router.post(
   "/create",
- // authMiddleware,
-  //roleMiddleware("SELLER"),
+ authMiddleware,
+  roleMiddleware("SELLER"),
   upload.array("images", 5),
   createProduct
 );
@@ -48,6 +66,12 @@ router.post(
 router.get("/", getAllActiveProducts);
 router.get("/seller/:sellerId", getProductsBySellerId);
 
+router.get(
+  "/admin/rejected",
+  authMiddleware,
+  roleMiddleware("ADMIN"),
+  getRejectedProducts
+);
 
 // ─────────────────────────────────────────────
 // SELLER DASHBOARD ROUTES
@@ -140,5 +164,7 @@ router.patch(
 );
 
 router.patch("/approve/:id",authMiddleware,roleMiddleware("ADMIN"), approveProduct);
+
 router.patch("/reject/:id",authMiddleware,roleMiddleware("ADMIN"), rejectProduct);
+
 module.exports = router;

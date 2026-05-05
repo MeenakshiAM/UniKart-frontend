@@ -29,7 +29,7 @@ export default function AdminProductsPage() {
       } else if (status === "REJECTED") {
         res = await getRejectedProducts();
       } else {
-        // fallback (optional safety)
+        // ACTIVE not supported yet in backend service
         res = await getPendingProducts();
       }
 
@@ -107,14 +107,14 @@ export default function AdminProductsPage() {
           </StatusMessage>
         )}
 
-        {/* LIST */}
+        {/* PRODUCT LIST */}
         <div className="space-y-4">
           {products.map((p) => (
             <div
               key={p._id}
               className="border p-4 rounded-lg flex justify-between items-center"
             >
-              {/* LEFT */}
+              {/* LEFT SIDE */}
               <div>
                 <h2 className="font-bold">{p.title}</h2>
 
