@@ -259,3 +259,13 @@ exports.adminHideProductService = async (id) => {
     { new: true }
   );
 };
+exports.getPendingProductsService = async () => {
+  return await Product.find({
+    status: "PENDING_APPROVAL",
+  }).sort({ createdAt: -1 });
+};
+exports.getRejectedProductsService = async () => {
+  return await Product.find({
+    status: "REJECTED",
+  }).sort({ createdAt: -1 });
+};

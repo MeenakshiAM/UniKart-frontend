@@ -154,3 +154,8 @@ export function rejectProduct(id, reason) {
     body: JSON.stringify({ reason }),
   });
 }
+export function getDraftById(id) {
+  return request(`/api/products/my/drafts/${encodeURIComponent(id)}`, {
+    method: "GET",
+  });
+}

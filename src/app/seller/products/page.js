@@ -111,45 +111,27 @@ export default function SellerProductsPage() {
 
         <nav className="flex flex-col gap-3 text-sm">
 
-          <button
-            className={tabClass("ACTIVE")}
-            onClick={() => setActiveTab("ACTIVE")}
-          >
+          <button className={tabClass("ACTIVE")} onClick={() => setActiveTab("ACTIVE")}>
             Active Products
           </button>
 
-          <button
-            className={tabClass("PENDING")}
-            onClick={() => setActiveTab("PENDING")}
-          >
+          <button className={tabClass("PENDING")} onClick={() => setActiveTab("PENDING")}>
             Pending
           </button>
 
-          <button
-            className={tabClass("DRAFT")}
-            onClick={() => setActiveTab("DRAFT")}
-          >
+          <button className={tabClass("DRAFT")} onClick={() => setActiveTab("DRAFT")}>
             Drafts
           </button>
 
-          <button
-            className={tabClass("REJECTED")}
-            onClick={() => setActiveTab("REJECTED")}
-          >
+          <button className={tabClass("REJECTED")} onClick={() => setActiveTab("REJECTED")}>
             Rejected
           </button>
 
-          <button
-            className={tabClass("HIDDEN")}
-            onClick={() => setActiveTab("HIDDEN")}
-          >
+          <button className={tabClass("HIDDEN")} onClick={() => setActiveTab("HIDDEN")}>
             Hidden
           </button>
 
-          <button
-            className={tabClass("OUT_OF_STOCK")}
-            onClick={() => setActiveTab("OUT_OF_STOCK")}
-          >
+          <button className={tabClass("OUT_OF_STOCK")} onClick={() => setActiveTab("OUT_OF_STOCK")}>
             Out of Stock
           </button>
 
@@ -185,12 +167,28 @@ export default function SellerProductsPage() {
             </StatusMessage>
           ) : (
             <div className="grid gap-5 md:grid-cols-2 xl:grid-cols-3">
+
               {products.map((product) => (
                 <ProductCard
                   key={product._id}
                   product={product}
+                  actionArea={
+                    activeTab === "ACTIVE" ? (
+                      <button
+                        onClick={() =>
+                          router.push(
+                            `/dashboard/products/edit/${product._id}`
+                          )
+                        }
+                        className="btn-primary"
+                      >
+                        Edit
+                      </button>
+                    ) : null
+                  }
                 />
               ))}
+
             </div>
           )}
 

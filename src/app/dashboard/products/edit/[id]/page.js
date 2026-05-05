@@ -1,13 +1,19 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { useRouter } from "next/navigation";
 import DashboardNav from "@/components/DashboardNav";
 import EmptyState from "@/components/EmptyState";
 import PageHero from "@/components/PageHero";
 import ProductForm from "@/components/ProductForm";
 import ProtectedRoute from "@/components/ProtectedRoute";
 import StatusMessage from "@/components/StatusMessage";
-import { getDraftById, getProductById, updateProduct } from "@/services/product.service";
+
+import {
+  getDraftById,
+  getProductById,
+  updateProduct,
+} from "@/services/product.service";
 
 function mapProductToForm(product) {
   return {
@@ -15,13 +21,17 @@ function mapProductToForm(product) {
     description: product?.description || "",
     category: product?.category || "ELECTRONICS",
     subCategory: product?.subCategory || "",
-    basePrice: product?.price?.basePrice ? String(product.price.basePrice) : "",
+    basePrice: product?.price?.basePrice
+      ? String(product.price.basePrice)
+      : "",
     quantity: product?.quantity != null ? String(product.quantity) : "",
     isDraft: product?.status === "DRAFT",
   };
 }
 
 export default function EditProductPage({ params }) {
+  const router = useRouter();
+
   const [form, setForm] = useState(null);
   const [existingProduct, setExistingProduct] = useState(null);
   const [files, setFiles] = useState([]);
@@ -30,8 +40,6 @@ export default function EditProductPage({ params }) {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    let isMounted = true;
-
     const loadProduct = async () => {
       setLoading(true);
 
@@ -40,60 +48,38 @@ export default function EditProductPage({ params }) {
 
         try {
           data = await getDraftById(params.id);
-        } catch (draftError) {
+        } catch {
           data = await getProductById(params.id);
         }
 
         const product = data?.product;
 
-        if (isMounted) {
-          setExistingProduct(product || null);
-          setForm(mapProductToForm(product));
-          setStatus({
-            type: "info",
-            message:
-              "Editing uses the stable public product endpoint or the draft endpoint when available. Rejected and hidden products may not be editable because the backend does not provide a direct fetch-by-id route for them.",
-          });
-        }
+        setExistingProduct(product);
+        setForm(mapProductToForm(product));
       } catch (error) {
-        if (isMounted) {
-          setStatus({
-            type: "error",
-            message: error.message || "Unable to load product for editing.",
-          });
-        }
+        setStatus({
+          type: "error",
+          message: error.message || "Unable to load product",
+        });
       } finally {
-        if (isMounted) {
-          setLoading(false);
-        }
+        setLoading(false);
       }
     };
 
     loadProduct();
-
-    return () => {
-      isMounted = false;
-    };
   }, [params.id]);
 
-  const handleChange = (event) => {
-    const { name, value, type, checked } = event.target;
-    setForm((current) => ({
-      ...current,
+  const handleChange = (e) => {
+    const { name, value, type, checked } = e.target;
+
+    setForm((prev) => ({
+      ...prev,
       [name]: type === "checkbox" ? checked : value,
     }));
   };
 
-  const handleSubmit = async (event) => {
-    event.preventDefault();
-
-    if (!form.title.trim() || !form.description.trim() || !form.basePrice) {
-      setStatus({
-        type: "error",
-        message: "Title, description, and base price are required.",
-      });
-      return;
-    }
+  const handleSubmit = async (e) => {
+    e.preventDefault();
 
     const payload = new FormData();
     payload.append("title", form.title);
@@ -101,27 +87,29 @@ export default function EditProductPage({ params }) {
     payload.append("category", form.category);
     payload.append("subCategory", form.subCategory);
     payload.append("basePrice", form.basePrice);
-    payload.append("price.basePrice", form.basePrice);
-    payload.append("price[basePrice]", form.basePrice);
     payload.append("quantity", form.quantity || "0");
     payload.append("isDraft", String(form.isDraft));
 
-    files.forEach((file) => {
-      payload.append("images", file);
-    });
+    files.forEach((f) => payload.append("images", f));
 
     setSubmitting(true);
 
     try {
-      const data = await updateProduct(params.id, payload);
+      const res = await updateProduct(params.id, payload);
+
       setStatus({
         type: "success",
-        message: data?.message || "Product updated successfully.",
+        message: "Product updated successfully 🎉",
       });
-    } catch (error) {
+
+      // 🔥 IMPORTANT: redirect to product page after update
+      setTimeout(() => {
+        router.push(`/products/${res?.product?._id || params.id}`);
+      }, 800);
+    } catch (err) {
       setStatus({
         type: "error",
-        message: error.message || "Unable to update product.",
+        message: err.message || "Update failed",
       });
     } finally {
       setSubmitting(false);
@@ -132,31 +120,34 @@ export default function EditProductPage({ params }) {
     <ProtectedRoute>
       <PageHero
         eyebrow="Seller Dashboard"
-        title="Edit product"
-        subtitle="This editor sends `basePrice` as a flat field because nested `price.basePrice` is unreliable in the current backend."
+        title="Edit Product"
+        subtitle="Update your product details safely"
       />
 
       <DashboardNav />
 
       <div className="space-y-6">
-        <StatusMessage type={status.type}>{status.message}</StatusMessage>
+        <StatusMessage type={status.type}>
+          {status.message}
+        </StatusMessage>
 
         {loading ? (
-          <div className="card-surface rounded-[2rem] p-8 text-sm text-[var(--muted)]">Loading product...</div>
-        ) : !form || !existingProduct ? (
+          <div className="p-6 text-gray-500">Loading...</div>
+        ) : !form ? (
           <EmptyState
-            title="Product not editable"
-            description="The backend could not provide this product through the available edit-safe endpoints."
+            title="Product not found"
+            description="Cannot load this product"
           />
         ) : (
           <ProductForm
             form={form}
             onChange={handleChange}
-            onFilesChange={(event) => setFiles(Array.from(event.target.files || []))}
+            onFilesChange={(e) =>
+              setFiles(Array.from(e.target.files || []))
+            }
             onSubmit={handleSubmit}
             submitting={submitting}
             submitLabel="Save Changes"
-            fileNote="Leave images empty to keep existing images. Upload new files only if you want to replace them."
           />
         )}
       </div>
