@@ -9,8 +9,10 @@ import StatusMessage from "@/components/StatusMessage";
 import { findDemoServiceById } from "@/data/demoCatalog";
 import {
   getServiceById,
-  getServiceSlotsInRange, // ✅ FIXED IMPORT
+  getServiceSlotsInRange,
 } from "@/services/service.service";
+
+import { createBooking } from "@/services/booking.service";
 
 export default function ServiceDetailsPage({ params }) {
   const [service, setService] = useState(null);
@@ -59,7 +61,7 @@ export default function ServiceDetailsPage({ params }) {
     load();
   }, [params.serviceId]);
 
-  // ================= LOAD SLOTS (FIXED) =================
+  // ================= LOAD SLOTS =================
   const handleLoadSlots = async (e) => {
     e.preventDefault();
 
@@ -75,18 +77,11 @@ export default function ServiceDetailsPage({ params }) {
       return;
     }
 
-    if (new Date(startDate) > new Date(endDate)) {
-      setSlotError("Start date cannot be after end date.");
-      return;
-    }
-
     setSlotLoading(true);
     setSlotError("");
     setSlots([]);
 
     try {
-      console.log("🚀 FETCHING RANGE SLOTS:", slotFilters);
-
       const res = await getServiceSlotsInRange(
         params.serviceId,
         startDate,
@@ -104,7 +99,30 @@ export default function ServiceDetailsPage({ params }) {
     }
   };
 
-  // ================= UI STATES =================
+  // ================= BOOK SLOT =================
+  const handleBookSlot = async (slotId, timeSlotId) => {
+    try {
+      const payload = {
+        serviceId: params.serviceId,
+        slotId,
+        timeSlotId,
+        participants: 1,
+      };
+
+      console.log("🚀 BOOKING PAYLOAD:", payload);
+
+      const res = await createBooking(payload);
+
+      console.log("✅ BOOKING SUCCESS:", res);
+
+      alert("Booking successful!");
+    } catch (err) {
+      console.error("❌ Booking failed:", err.message);
+      alert(err.message);
+    }
+  };
+
+  // ================= LOADING UI =================
   if (loading) {
     return <div className="p-6">Loading service...</div>;
   }
@@ -141,6 +159,7 @@ export default function ServiceDetailsPage({ params }) {
         <Panel>
           <h2 className="font-semibold mb-3">Slots</h2>
 
+          {/* FILTER */}
           <form onSubmit={handleLoadSlots} className="space-y-2">
 
             <input
@@ -176,26 +195,51 @@ export default function ServiceDetailsPage({ params }) {
             <StatusMessage type="error">{slotError}</StatusMessage>
           )}
 
-          {slotLoading && <p>Loading slots...</p>}
+          {/* SLOT LIST */}
+          <div className="mt-4 space-y-4">
 
-          <div className="mt-3 space-y-2">
-            {slots.length === 0 && !slotLoading ? (
+            {slotLoading ? (
+              <p className="text-sm text-gray-500">Loading slots...</p>
+            ) : slots.length === 0 ? (
               <p className="text-sm text-gray-500">No slots found</p>
             ) : (
               slots.map((slot) => (
-                <div key={slot._id} className="border p-2 rounded">
-                  <p className="font-medium">
+                <div key={slot._id} className="border p-3 rounded">
+
+                  <p className="font-semibold">
                     📅 {new Date(slot.date).toDateString()}
                   </p>
 
-                  {slot.timeSlots?.map((t, idx) => (
-                    <p key={idx} className="text-sm">
-                      ⏰ {t.startTime} - {t.endTime}
-                    </p>
-                  ))}
+                  <div className="mt-2 space-y-2">
+
+                    {slot.timeSlots?.map((t) => (
+                      <div
+                        key={t._id}
+                        className="flex justify-between items-center border p-2 rounded"
+                      >
+
+                        <span className="text-sm">
+                          ⏰ {t.startTime} - {t.endTime}
+                        </span>
+
+                        <button
+                          className="bg-blue-600 text-white px-3 py-1 rounded text-xs"
+                          onClick={() =>
+                            handleBookSlot(slot._id, t._id)
+                          }
+                        >
+                          Book
+                        </button>
+
+                      </div>
+                    ))}
+
+                  </div>
+
                 </div>
               ))
             )}
+
           </div>
 
         </Panel>
