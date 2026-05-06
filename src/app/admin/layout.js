@@ -40,19 +40,24 @@ export default function AdminLayout({ children }) {
 
         <nav className="flex flex-col gap-3 text-sm">
 
-          <Link href="/admin/sellers">
-            🧑‍💼 Seller Approvals
-          </Link>
+  <Link href="/admin/sellers">
+    🧑‍💼 Seller Approvals
+  </Link>
 
-          <Link href="/admin/products">
-            📦 Product Moderation
-          </Link>
+  <Link href="/admin/products">
+    📦 Product Moderation
+  </Link>
 
-          <Link href="/admin/reports">
-            🚨 Reports
-          </Link>
+  {/* 🔥 ADD THIS */}
+  <Link href="/admin/services">
+    🛠️ Service Moderation
+  </Link>
 
-        </nav>
+  <Link href="/admin/reports">
+    🚨 Reports
+  </Link>
+
+</nav>
       </aside>
 
       <main className="flex-1 p-6">

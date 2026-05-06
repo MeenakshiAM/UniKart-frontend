@@ -34,6 +34,7 @@ export default function Navbar() {
   let links = [
     { href: "/", label: "Home" },
     { href: "/products", label: "Products" },
+    { href: "/services", label: "Services" },
   ];
 
   if (!user) {

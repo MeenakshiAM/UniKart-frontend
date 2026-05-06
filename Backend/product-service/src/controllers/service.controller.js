@@ -409,6 +409,7 @@ class ServiceController {
 
     const result = await serviceService.getPendingServices(page, limit);
 
+    console.log("🔥 RESULT COUNT:", result.services.length);
     return res.status(200).json({
       success: true,
       message: "Pending services fetched successfully",
@@ -581,7 +582,6 @@ async getMyActiveServices(req, res) {
   try {
     const providerId = req.user.userId;
     console.log("🔥 ACTIVE HIT:", req.user.userId);
-console.log("🔥 RESULT:", result.services);
 
     const result = await serviceService.listServices(
       { providerId, status: "active" },

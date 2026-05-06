@@ -22,37 +22,38 @@ export default function SellerServicePage() {
 
   // 🔥 DEBUG VERSION FETCHER (SAFE + CLEAR)
   const fetchServices = async () => {
-    setLoading(true);
+  setLoading(true);
 
-    try {
-      let res;
+  try {
+    let res;
 
-      if (status === "ACTIVE") {
-        res = await getMyActiveServices();
-      } else if (status === "PENDING") {
-        res = await getMyPendingServices();
-      } else {
-        res = await getMyRejectedServices();
-      }
-
-      // 🔥 IMPORTANT DEBUG LOG
-      console.log("🔥 API RESPONSE:", res);
-
-      // ✅ ALWAYS EXPECT ARRAY HERE
-      const list = Array.isArray(res)
-        ? res
-        : res?.data
-        ? res.data
-        : [];
-
-      setServices(list);
-    } catch (err) {
-      console.log("❌ FETCH ERROR:", err);
-      setServices([]);
-    } finally {
-      setLoading(false);
+    if (status === "ACTIVE") {
+      res = await getMyActiveServices();
+    } else if (status === "PENDING") {
+      res = await getMyPendingServices();
+    } else {
+      res = await getMyRejectedServices();
     }
-  };
+
+    console.log("🔥 RAW RESPONSE:", res);
+
+    // ✅ SAFE EXTRACTION (IMPORTANT FIX)
+    const list =
+      res?.data?.data ||   // if nested { data: { data: [] } }
+      res?.data ||         // normal backend response
+      res ||               // direct array
+      [];
+
+    console.log("🔥 FINAL LIST:", list);
+
+    setServices(Array.isArray(list) ? list : []);
+  } catch (err) {
+    console.log("❌ FETCH ERROR:", err);
+    setServices([]);
+  } finally {
+    setLoading(false);
+  }
+};
 
   useEffect(() => {
     fetchServices();

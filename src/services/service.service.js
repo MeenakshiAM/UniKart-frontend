@@ -91,3 +91,19 @@ export const getMyPendingServices = () =>
 
 export const getMyRejectedServices = () =>
   request("/api/services/provider/rejected");
+// ================= ADMIN SERVICE MODERATION =================
+
+// Approve service
+export function approveService(serviceId) {
+  return request(`/api/services/admin/${serviceId}/approve`, {
+    method: "POST",
+  });
+}
+
+// Reject service
+export function rejectService(serviceId, data) {
+  return request(`/api/services/admin/${serviceId}/reject`, {
+    method: "POST",
+    body: JSON.stringify(data),
+  });
+}
