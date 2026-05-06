@@ -39,14 +39,14 @@ export default function Navbar() {
 
   if (!user) {
     links.push(
-      { href: "/services", label: "Services" },
+      
       { href: "/login", label: "Login" }
     );
   }
 
   if (role === "BUYER") {
     links.push(
-      { href: "/services", label: "Services" },
+      
       { href: "/become-seller", label: "Become Seller" }
     );
   }

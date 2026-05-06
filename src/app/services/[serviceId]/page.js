@@ -44,8 +44,8 @@ export default function ServiceDetailsPage({ params }) {
 
       try {
         const res = await getServiceById(params.serviceId);
-
-        setService(res?.data || null);
+console.log("🔥 SERVICE RESPONSE:", res);
+        setService(res?.data ?? res ?? null);
         setError("");
       } catch (err) {
         setError(err.message || "Failed to load service");

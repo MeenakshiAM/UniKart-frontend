@@ -25,7 +25,7 @@ export function createService(formData) {
 
 // ================= UPDATE SERVICE =================
 export function updateService(id, formData) {
-  return request(`/api/service/${id}`, {
+  return request(`/api/services${id}`, {
     method: "PUT",
     body: formData,
   });
@@ -33,12 +33,13 @@ export function updateService(id, formData) {
 
 // ================= DELETE SERVICE =================
 export function deleteService(id) {
-  return request(`/api/service/${id}`, {
+  return request(`/api/services/${id}`, {
     method: "DELETE",
   });
 }
 
 // ================= LIST =================
+// ================= LIST (PUBLIC SERVICES) =================
 export function getServices(params = {}) {
   const query = new URLSearchParams();
 
@@ -48,14 +49,14 @@ export function getServices(params = {}) {
     }
   });
 
-  return request(`/api/service?${query.toString()}`, {
+  return request(`/api/services?${query.toString()}`, {
     method: "GET",
   });
 }
 
 // ================= SINGLE =================
 export function getServiceById(id) {
-  return request(`/api/service/${id}`, {
+  return request(`/api/services/${id}`, {
     method: "GET",
   });
 }

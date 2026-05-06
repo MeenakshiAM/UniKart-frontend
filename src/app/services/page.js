@@ -25,12 +25,12 @@ export default function ServicesPage() {
     const load = async () => {
       try {
         const data = await getServices({ page, limit: 9 });
-
+console.log("🔥 RAW RESPONSE:", data);
         if (!mounted) return;
-
+        console.log("🔥 RAW RESPONSE:", data);
         setState({
           loading: false,
-          services: data?.data || [],
+          services: Array.isArray(data) ? data : data?.data || [],
           pagination: data?.pagination || null,
           error: "",
         });
