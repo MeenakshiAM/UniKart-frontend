@@ -105,7 +105,7 @@ async createBooking(data) {
     timeSlot.bookingIds.push(booking._id);
 
     if (timeSlot.capacity.booked >= max) {
-      timeSlot.status = "reserved";
+      timeSlot.status = "available";
     }
 
     await slot.save({ session });
