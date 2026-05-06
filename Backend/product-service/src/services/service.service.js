@@ -303,7 +303,7 @@ if (providerId) {
   }
 
   const hasBookings = slot.timeSlots.some(
-    ts => ts.capacity?.booked > 0
+    ts => ts.capacity?.booked > 2
   );
 
   if (hasBookings) {

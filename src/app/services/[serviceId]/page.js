@@ -31,7 +31,9 @@ export default function ServiceDetailsPage({ params }) {
   const [slotLoading, setSlotLoading] = useState(false);
   const [slotError, setSlotError] = useState("");
 
-  // ================= LOAD SERVICE =================
+  const [bookings, setBookings] = useState([]);
+
+  // ================= SERVICE LOAD =================
   useEffect(() => {
     const load = async () => {
       setLoading(true);
@@ -59,7 +61,33 @@ export default function ServiceDetailsPage({ params }) {
     load();
   }, [params.serviceId]);
 
-  // ================= LOAD RAZORPAY =================
+  // ================= LOAD BOOKINGS =================
+  const loadBookings = async () => {
+    try {
+      const res = await fetch(
+        "http://localhost:4002/api/bookings/bookings",
+        {
+          headers: {
+            Authorization: `Bearer ${getToken()}`,
+          },
+        }
+      );
+
+      const data = await res.json();
+
+      const normalized = data?.data ?? data ?? [];
+      setBookings(Array.isArray(normalized) ? normalized : []);
+    } catch (err) {
+      console.error("Booking load failed", err);
+      setBookings([]);
+    }
+  };
+
+  useEffect(() => {
+    loadBookings();
+  }, []);
+
+  // ================= RAZORPAY =================
   const loadRazorpay = () => {
     return new Promise((resolve) => {
       if (window.Razorpay) return resolve(true);
@@ -108,53 +136,28 @@ export default function ServiceDetailsPage({ params }) {
     }
   };
 
-  // ================= BOOK + PAYMENT =================
+  // ================= BOOK SLOT =================
   const handleBookSlot = async (slotId, timeSlotId) => {
     try {
-      console.log("🚀 Creating booking...");
-
-      const payload = {
+      const res = await createBooking({
         serviceId: params.serviceId,
         slotId,
         timeSlotId,
         participants: 1,
-      };
-
-      const res = await createBooking(payload);
+      });
 
       const booking = res?.data || res;
-      const bookingId = booking._id;
-      const amount = booking.pricing.totalAmount;
+      const bookingId = booking?._id;
+      const amount = booking?.pricing?.totalAmount;
 
-      console.log("✅ Booking created:", bookingId);
-
-      // ================= TOKEN =================
       const token = getToken();
+      if (!token) return alert("Login required");
 
-      if (!token) {
-        alert("Login required");
-        return;
-      }
+      const decoded = JSON.parse(atob(token.split(".")[1]));
 
-      // ================= DECODE USER =================
-      let userId;
-
-      try {
-        const decoded = JSON.parse(atob(token.split(".")[1]));
-        userId = decoded.userId;
-      } catch {
-        alert("Invalid token");
-        return;
-      }
-
-      // ================= LOAD RAZORPAY =================
       const loaded = await loadRazorpay();
-      if (!loaded) {
-        alert("Razorpay failed to load");
-        return;
-      }
+      if (!loaded) return alert("Razorpay failed");
 
-      // ================= CREATE ORDER =================
       const response = await fetch(
         "http://localhost:4008/api/payments/create-order",
         {
@@ -166,18 +169,14 @@ export default function ServiceDetailsPage({ params }) {
           body: JSON.stringify({
             amount,
             currency: "INR",
-            userId, // 🔥 FIXED
+            userId: decoded.userId,
           }),
         }
       );
 
       const data = await response.json();
+      if (!data.success) throw new Error(data.message);
 
-      if (!data.success) {
-        throw new Error(data.message);
-      }
-
-      // ================= RAZORPAY =================
       const options = {
         key: data.data.key,
         amount: data.data.amount,
@@ -187,34 +186,24 @@ export default function ServiceDetailsPage({ params }) {
 
         handler: async (res) => {
           try {
-            // VERIFY PAYMENT
             await fetch(
               "http://localhost:4008/api/payments/confirm",
               {
                 method: "POST",
-                headers: {
-                  "Content-Type": "application/json",
-                },
-                body: JSON.stringify({
-                  razorpayOrderId: res.razorpay_order_id,
-                  razorpayPaymentId: res.razorpay_payment_id,
-                  razorpaySignature: res.razorpay_signature,
-                }),
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify(res),
               }
             );
 
-            // MARK BOOKING PAID
             await fetch(
               `http://localhost:4002/api/bookings/${bookingId}/pay`,
-              {
-                method: "PATCH",
-                headers: {
-                  "Content-Type": "application/json",
-                },
-              }
+              { method: "PATCH" }
             );
 
             alert("🎉 Booking confirmed!");
+
+            // 🔥 REFRESH BOOKINGS AFTER PAYMENT
+            await loadBookings();
 
           } catch {
             alert("Payment verification failed");
@@ -223,17 +212,32 @@ export default function ServiceDetailsPage({ params }) {
       };
 
       const rzp = new window.Razorpay(options);
-
-      rzp.on("payment.failed", () => {
-        alert("Payment failed ❌");
-      });
-
       rzp.open();
 
     } catch (err) {
-      console.error("❌ Booking failed:", err.message);
       alert(err.message);
     }
+  };
+
+  // ================= SAFE STATUS CHECK =================
+  const getBookingStatus = (slotId, timeSlotId) => {
+    if (!Array.isArray(bookings)) return "AVAILABLE";
+
+    const booking = bookings.find((b) => {
+      return (
+        String(b?.slotId) === String(slotId) &&
+        String(b?.timeSlotId) === String(timeSlotId)
+      );
+    });
+
+    if (!booking) return "AVAILABLE";
+
+    const status = booking?.status;
+
+    if (status === "confirmed" || status === "completed") return "BOOKED";
+    if (status === "pending_payment") return "PENDING";
+
+    return "AVAILABLE";
   };
 
   // ================= UI =================
@@ -297,47 +301,60 @@ export default function ServiceDetailsPage({ params }) {
           )}
 
           <div className="mt-4 space-y-4">
+
             {slotLoading ? (
               <p>Loading slots...</p>
             ) : slots.length === 0 ? (
               <p>No slots found</p>
             ) : (
               slots.map((slot) => (
-                <div key={slot._id} className="border p-3 rounded">
+                <div key={slot._id} className="border p-3 rounded-lg bg-white">
 
-                  <p className="font-semibold">
+                  <p className="font-semibold mb-2">
                     📅 {new Date(slot.date).toDateString()}
                   </p>
 
-                  <div className="mt-2 space-y-2">
-                    {slot.timeSlots?.map((t) => (
+                  {slot.timeSlots?.map((t) => {
+                    const status = getBookingStatus(slot._id, t._id);
+
+                    return (
                       <div
                         key={t._id}
-                        className="flex justify-between items-center border p-2 rounded"
+                        className="flex justify-between items-center border p-2 rounded mb-2"
                       >
                         <span>
                           ⏰ {t.startTime} - {t.endTime}
                         </span>
 
-                        <button
-                          className="bg-blue-600 text-white px-3 py-1 rounded text-xs"
-                          onClick={() =>
-                            handleBookSlot(slot._id, t._id)
-                          }
-                        >
-                          Book
-                        </button>
-
+                        {status === "BOOKED" ? (
+                          <span className="text-xs px-3 py-1 rounded bg-red-100 text-red-600">
+                            Booked
+                          </span>
+                        ) : status === "PENDING" ? (
+                          <span className="text-xs px-3 py-1 rounded bg-yellow-100 text-yellow-700">
+                            Pending
+                          </span>
+                        ) : (
+                          <button
+                            className="bg-blue-600 text-white px-3 py-1 rounded text-xs"
+                            onClick={() =>
+                              handleBookSlot(slot._id, t._id)
+                            }
+                          >
+                            Book
+                          </button>
+                        )}
                       </div>
-                    ))}
-                  </div>
+                    );
+                  })}
 
                 </div>
               ))
             )}
-          </div>
 
+          </div>
         </Panel>
+
       </div>
     </div>
   );

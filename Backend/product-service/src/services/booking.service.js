@@ -2,6 +2,7 @@ const Booking = require("../models/Booking");
 const Service = require("../models/Service");
 const Slot = require("../models/Slot");
 const mongoose = require("mongoose");
+const { sendEmail } = require("../utils/mailer");
 const axios = require("axios");
 
 class BookingService {
@@ -97,8 +98,50 @@ async createBooking(data) {
       bookingStatus: booking.status,
       paymentStatus: booking.payment.status
     });
-
+    
     await booking.save({ session });
+
+await sendEmail({
+  to: user.email,
+  subject: "🎉 Booking Created Successfully",
+  html: `
+    <h2>Hello ${user.name}</h2>
+    <p>Your booking has been created successfully.</p>
+
+    <h3>Details:</h3>
+    <ul>
+      <li>Service: ${service.title}</li>
+      <li>Date: ${slot.date}</li>
+      <li>Time: ${timeSlot.startTime} - ${timeSlot.endTime}</li>
+      <li>Status: Pending Payment</li>
+    </ul>
+
+    <p>Please complete payment to confirm your booking.</p>
+  `
+});
+
+const providerRes = await axios.get(
+  `${process.env.USER_SERVICE_URL || "http://localhost:4001"}/api/auth/users/${service.providerId}`
+);
+console.log(providerRes);
+const provider = providerRes.data?.data;
+await sendEmail({
+  to: provider.email, 
+  subject: "📌 New Booking Received",
+  html: `
+    <h2>New Booking Alert 🚨</h2>
+
+    <p>A user just booked your service.</p>
+
+    <p><b>Service:</b> ${service.title}</p>
+    <p><b>User:</b> ${user.name}</p>
+    <p><b>Email:</b> ${user.email}</p>
+    <p><b>Date:</b> ${slot.date}</p>
+    <p><b>Time:</b> ${timeSlot.startTime} - ${timeSlot.endTime}</p>
+
+    <p>Please check your dashboard.</p>
+  `
+});
 
     // 7. TEMPORARY SLOT RESERVE
     timeSlot.capacity.booked += participants;
