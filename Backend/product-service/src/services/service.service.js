@@ -260,65 +260,60 @@ if (providerId) {
 
   // ================= SLOT MANAGEMENT =================
 
-  async createSlot(serviceId, providerId, slotData) {
+ async createSlot(serviceId, providerId, slotData) {
+  const service = await Service.findOne({
+    _id: serviceId,
+    providerId
+  });
 
-    const service = await Service.findOne({
-      _id: serviceId,
-      providerId
-    });
-
-    if (!service) {
-      throw new Error("Service not found or unauthorized");
-    }
-
-    const slot = new Slot({
-      serviceId,
-      providerId,
-      ...slotData
-    });
-
-    await slot.save();
-
-    return slot;
+  if (!service) {
+    throw new Error("Service not found or unauthorized");
   }
 
-  async getServiceSlots(serviceId, startDate, endDate) {
-
-  const start = new Date(startDate);
-  const end = new Date(endDate);
-
-  const slots = await Slot.find({
+  const slot = new Slot({
     serviceId,
-    date: { $gte: start, $lte: end }
-  }).sort({ date: 1 });
+    providerId,
+    date: new Date(slotData.date),
 
+    timeSlots: slotData.timeSlots, // 👈 IMPORTANT CHANGE HERE
+
+    isRecurring: false,
+    isActive: true
+  });
+
+  await slot.save();
+  return slot;
+}
+
+
+ async getServiceSlots(serviceId) {
+  const slots = await Slot.find({ serviceId }).sort({ date: 1 });
   return slots;
 }
 
   async deleteSlot(slotId, providerId) {
 
-    const slot = await Slot.findOne({
-      _id: slotId,
-      providerId
-    });
+  const slot = await Slot.findOne({
+    _id: slotId,
+    providerId
+  });
 
-    if (!slot) {
-      throw new Error("Slot not found or unauthorized");
-    }
-
-    const hasBookings = slot.timeSlots.some(
-      ts => ts.capacity.booked > 0
-    );
-
-    if (hasBookings) {
-      throw new Error("Cannot delete slot with bookings");
-    }
-
-    await Slot.deleteOne({ _id: slotId });
-
-    return { message: "Slot deleted successfully" };
+  if (!slot) {
+    throw new Error("Slot not found or unauthorized");
   }
 
+  const hasBookings = slot.timeSlots.some(
+    ts => ts.capacity?.booked > 0
+  );
+
+  if (hasBookings) {
+    throw new Error("Cannot delete slot with bookings");
+  }
+
+  await Slot.deleteOne({ _id: slotId });
+
+  return { message: "Slot deleted successfully" };
+}
   // ================= PROVIDER STATS =================
 
   async getProviderStats(providerId) {
@@ -406,25 +401,19 @@ async rejectServiceService(serviceId, reason) {
 }
 async updateSlot(slotId, providerId, updateData) {
 
-  // 🔥 Validate ObjectId
   if (!mongoose.Types.ObjectId.isValid(slotId)) {
     throw new Error("Invalid slot ID");
   }
 
-  if (!mongoose.Types.ObjectId.isValid(providerId)) {
-    throw new Error("Invalid provider ID");
-  }
-
   const slot = await Slot.findOne({
-    _id: new mongoose.Types.ObjectId(slotId),
-    providerId: new mongoose.Types.ObjectId(providerId)
+    _id: slotId,
+    providerId
   });
 
   if (!slot) {
     throw new Error("Slot not found or unauthorized");
   }
 
-  // 🚫 Prevent editing if bookings exist
   const hasBookings = slot.timeSlots.some(
     ts => ts.capacity?.booked > 0
   );
@@ -433,22 +422,26 @@ async updateSlot(slotId, providerId, updateData) {
     throw new Error("Cannot update slot with existing bookings");
   }
 
-  // 🔧 Update fields safely
   if (updateData.date) {
     slot.date = new Date(updateData.date);
   }
 
   if (updateData.timeSlots) {
-    slot.timeSlots = updateData.timeSlots;
+    // ✅ enforce structure safety
+    slot.timeSlots = updateData.timeSlots.map(t => ({
+      startTime: t.startTime,
+      endTime: t.endTime,
+      status: t.status || "available",
+      bookingIds: t.bookingIds || [],
+      capacity: t.capacity || { booked: 0 }
+    }));
   }
 
-  // optional future field
   if (updateData.isActive !== undefined) {
     slot.isActive = updateData.isActive;
   }
 
   await slot.save();
-
   return slot;
 }
 }

@@ -70,13 +70,19 @@ export function getMyServices(status = "") {
 }
 
 // ================= SLOTS =================
-export function getServiceSlots(id, filters) {
-  const query = new URLSearchParams(filters).toString();
+// ================= SLOTS =================
+export const getServiceSlots = (serviceId) => {
+  console.log("🔥 serviceId received in API:", serviceId);
 
-  return request(`/api/services/${id}/slots?${query}`, {
+  if (!serviceId) {
+    console.error("❌ serviceId is missing!");
+    throw new Error("serviceId is required for getServiceSlots");
+  }
+
+  return request(`/api/services/${serviceId}/slots`, {
     method: "GET",
   });
-}
+};
 export function getPendingServices(params = {}) {
   const query = new URLSearchParams(params).toString();
 
@@ -113,6 +119,8 @@ export function rejectService(serviceId, data) {
 
 // CREATE SLOT (single)
 export function createSlot(serviceId, data) {
+  console.log("🚀 Sending payload:", data);
+
   return request(`/api/services/${serviceId}/slots`, {
     method: "POST",
     body: JSON.stringify(data),

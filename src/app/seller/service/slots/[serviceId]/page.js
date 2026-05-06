@@ -13,18 +13,6 @@ import {
   deleteSlot,
 } from "@/services/service.service";
 
-// ---------------- FORMAT DATE ----------------
-const formatDate = (dateStr) => {
-  if (!dateStr) return "-";
-
-  const date = new Date(dateStr);
-  return date.toLocaleDateString("en-GB", {
-    day: "2-digit",
-    month: "short",
-    year: "numeric",
-  });
-};
-
 export default function SlotManagerPage() {
   const { serviceId } = useParams();
 
@@ -37,25 +25,23 @@ export default function SlotManagerPage() {
     endTime: "",
   });
 
+  // 🧠 TEMP FIX (replace later with JWT)
+  const providerId =
+    typeof window !== "undefined"
+      ? localStorage.getItem("userId")
+      : null;
+
   // ================= LOAD =================
   const loadSlots = async () => {
     setLoading(true);
 
     try {
-      const today = new Date();
-      const nextWeek = new Date();
-      nextWeek.setDate(today.getDate() + 7);
+      const res = await getServiceSlots(serviceId);
 
-      const res = await getServiceSlots(serviceId, {
-        startDate: today.toISOString().split("T")[0],
-        endDate: nextWeek.toISOString().split("T")[0],
-      });
+      console.log("🔥 RAW RESPONSE:", res);
 
       const data =
-        res?.data?.data ||
-        res?.data ||
-        res ||
-        [];
+        res?.slots || res?.data?.slots || res?.data || res;
 
       setSlots(Array.isArray(data) ? data : []);
     } catch (err) {
@@ -67,63 +53,77 @@ export default function SlotManagerPage() {
   };
 
   useEffect(() => {
-    loadSlots();
+    if (serviceId) loadSlots();
   }, [serviceId]);
 
   // ================= CREATE =================
-  const handleCreate = async () => {
-    if (!form.date || !form.startTime || !form.endTime) return;
+ const handleCreate = async () => {
+  console.log("🔥 FORM STATE:", form);
 
-    try {
-      await createSlot(serviceId, form);
-      setForm({ date: "", startTime: "", endTime: "" });
-      loadSlots();
-    } catch (err) {
-      console.log(err);
-    }
+  const payload = {
+    date: form.date,
+    startTime: form.startTime,
+    endTime: form.endTime,
   };
 
+  console.log("🚀 FINAL PAYLOAD:", payload);
+
+  try {
+    await createSlot(serviceId, payload);
+
+    setForm({ date: "", startTime: "", endTime: "" });
+    loadSlots();
+  } catch (err) {
+    console.log("❌ Create failed:", err);
+  }
+};
+
   // ================= DELETE =================
-  const handleDelete = async (slotId, status) => {
-    if (status === "booked") {
+  const handleDelete = async (slotId, time) => {
+    if (time?.status === "booked") {
       alert("Booked slot cannot be deleted");
       return;
     }
 
     try {
-      await deleteSlot(slotId);
+      await deleteSlot(slotId, providerId);
       loadSlots();
     } catch (err) {
       console.log(err);
     }
   };
 
-  // ================= EDIT (basic placeholder) =================
-  const handleEdit = async (slot) => {
-  const time = slot.timeSlots?.[0];
+  // ================= EDIT =================
+  const handleEdit = async (slot, idx) => {
+  const time = slot.timeSlots?.[idx];
 
   const newStart = prompt("New start time", time?.startTime);
   const newEnd = prompt("New end time", time?.endTime);
 
   if (!newStart || !newEnd) return;
 
-  try {
-    await updateSlot(slot._id, {
-      timeSlots: [
-        {
-          startTime: newStart,
-          endTime: newEnd,
-          status: time?.status || "available",
-          bookingIds: time?.bookingIds || [],
-        },
-      ],
-    });
+  const updatedSlots = [...slot.timeSlots];
 
+  updatedSlots[idx] = {
+    ...updatedSlots[idx],
+    startTime: newStart,
+    endTime: newEnd,
+  };
+
+  const payload = {
+    timeSlots: updatedSlots,
+  };
+
+  console.log("🚀 UPDATE PAYLOAD:", payload);
+
+  try {
+    await updateSlot(slot._id, payload); // 👈 IMPORTANT CHANGE
     loadSlots();
   } catch (err) {
-    console.log(err);
+    console.log("❌ Update failed:", err);
   }
 };
+
   return (
     <div className="p-6 space-y-6">
 
@@ -180,70 +180,50 @@ export default function SlotManagerPage() {
             No slots created yet
           </StatusMessage>
         ) : (
-          slots.map((slot) => {
+          slots.map((slot) => (
+            <div key={slot._id} className="bg-white p-4 rounded-xl shadow">
 
-            const time = slot.timeSlots?.[0] || {};
-            const status = time.status || "available";
+              <p className="font-semibold">
+                📅 {new Date(slot.date).toDateString()}
+              </p>
 
-            return (
-              <div
-                key={slot._id}
-                className="bg-white p-4 rounded-xl shadow flex justify-between items-center"
-              >
+              <div className="mt-2 space-y-2">
 
-                {/* LEFT SIDE */}
-                <div>
-                  <p className="font-semibold">
-                    📅 {formatDate(slot.date)}
-                  </p>
+                {Array.isArray(slot.timeSlots)
+                  ? slot.timeSlots.map((time, idx) => (
+                      <div
+                        key={idx}
+                        className="flex justify-between items-center border p-2 rounded"
+                      >
+                        <p className="text-sm">
+                          ⏰ {time.startTime} - {time.endTime}
+                        </p>
 
-                  <p className="text-sm text-gray-600">
-                    ⏰ {time.startTime || "--:--"} - {time.endTime || "--:--"}
-                  </p>
+                        <div className="flex gap-2">
 
-                  <span
-                    className={`text-xs px-2 py-1 rounded mt-1 inline-block ${
-                      status === "booked"
-                        ? "bg-red-100 text-red-600"
-                        : "bg-green-100 text-green-600"
-                    }`}
-                  >
-                    {status.toUpperCase()}
-                  </span>
-                </div>
+                          <button
+                            className="bg-blue-500 text-white px-2 py-1 rounded text-xs"
+                            onClick={() => handleEdit(slot, idx)}
+                          >
+                            Edit
+                          </button>
 
-                {/* RIGHT SIDE ACTIONS */}
-                <div className="flex gap-2">
+                          <button
+                            className="bg-red-500 text-white px-2 py-1 rounded text-xs"
+                            onClick={() => handleDelete(slot._id, time)}
+                          >
+                            Delete
+                          </button>
 
-                  <button
-                    onClick={() => handleEdit(slot)}
-                    disabled={status === "booked"}
-                    className={`px-3 py-1 rounded text-sm ${
-                      status === "booked"
-                        ? "bg-gray-300 cursor-not-allowed"
-                        : "bg-blue-500 text-white"
-                    }`}
-                  >
-                    Edit
-                  </button>
-
-                  <button
-                    onClick={() => handleDelete(slot._id, status)}
-                    disabled={status === "booked"}
-                    className={`px-3 py-1 rounded text-sm ${
-                      status === "booked"
-                        ? "bg-gray-300 cursor-not-allowed"
-                        : "bg-red-500 text-white"
-                    }`}
-                  >
-                    Delete
-                  </button>
-
-                </div>
+                        </div>
+                      </div>
+                    ))
+                  : null}
 
               </div>
-            );
-          })
+
+            </div>
+          ))
         )}
 
       </div>

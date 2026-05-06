@@ -270,21 +270,20 @@ class ServiceController {
       throw new Error("date, startTime, endTime are required");
     }
 
-    const slot = await serviceService.createSlot(
-      serviceId,
-      providerId,
+   const slot = await serviceService.createSlot(
+  serviceId,
+  providerId,
+  {
+    date,
+    timeSlots: [
       {
-        date,
-        timeSlots: [
-          {
-            startTime,
-            endTime,
-            isBooked: false,
-          },
-        ],
+        startTime,
+        endTime,
+        status: "available",
       }
-    );
-
+    ]
+  }
+);
     console.log("CREATED SLOT:", slot);
 
     return res.status(201).json({
@@ -339,61 +338,58 @@ class ServiceController {
   }
 
 
-  async getServiceSlots(req, res) {
-    try {
+ async getServiceSlots(req, res) {
+  try {
+    const { serviceId } = req.params;
 
-      const { serviceId } = req.params;
-      const { startDate, endDate } = req.query;
-
-      if (!startDate || !endDate) {
-        return res.status(400).json({
-          success: false,
-          message: 'startDate and endDate are required'
-        });
-      }
-
-      const slots = await serviceService.getServiceSlots(serviceId, startDate, endDate);
-
-      return res.status(200).json({
-        success: true,
-        data: slots
-      });
-
-    } catch (error) {
-
+    if (!serviceId) {
       return res.status(400).json({
         success: false,
-        message: error.message
+        message: "Service ID required"
       });
-
     }
+
+    const slots = await serviceService.getServiceSlots(serviceId);
+
+    return res.status(200).json({
+      success: true,
+      data: slots
+    });
+
+  } catch (error) {
+    return res.status(400).json({
+      success: false,
+      message: error.message
+    });
   }
+}
 
 
   async updateSlot(req, res) {
-    try {
+  try {
+    const { slotId } = req.params;
+    const providerId = req.user.userId;
+    const updateData = req.body;
 
-      const { slotId } = req.params;
-      const providerId = req.user.userId;
+    const updatedSlot = await serviceService.updateSlot(
+      slotId,
+      providerId,
+      updateData
+    );
 
-      const slot = await serviceService.updateSlot(slotId, providerId, req.body);
+    return res.status(200).json({
+      success: true,
+      message: "Slot updated successfully",
+      data: updatedSlot
+    });
 
-      return res.status(200).json({
-        success: true,
-        message: 'Slot updated successfully',
-        data: slot
-      });
-
-    } catch (error) {
-
-      return res.status(400).json({
-        success: false,
-        message: error.message
-      });
-
-    }
+  } catch (error) {
+    return res.status(400).json({
+      success: false,
+      message: error.message
+    });
   }
-
+}
 
   async deleteSlot(req, res) {
     try {
