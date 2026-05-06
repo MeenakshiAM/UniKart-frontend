@@ -444,6 +444,22 @@ async updateSlot(slotId, providerId, updateData) {
   await slot.save();
   return slot;
 }
+
+async getServiceSlotsInRange(serviceId, startDate, endDate) {
+  const start = new Date(startDate);
+  const end = new Date(endDate);
+
+  const slots = await Slot.find({
+    serviceId,
+    date: {
+      $gte: start,
+      $lte: end,
+    },
+  }).sort({ date: 1 });
+
+  return slots;
+}
+
 }
 
 module.exports = new ServiceService();

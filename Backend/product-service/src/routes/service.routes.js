@@ -22,7 +22,7 @@ router.get("/:serviceId/slots", serviceController.getServiceSlots);
 // Get single service
 router.get("/:serviceId", serviceController.getService);
 
-
+router.get("/:serviceId/slots/range", serviceController.getServiceSlotsInRange);
 
 // ── PROVIDER ROUTES ───────────────────────────────────────
 

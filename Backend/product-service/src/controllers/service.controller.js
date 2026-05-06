@@ -667,7 +667,35 @@ async getMyRejectedServices(req, res) {
     });
   }
 }
+async getServiceSlotsInRange(req, res) {
+  try {
+    const { serviceId } = req.params;
+    const { startDate, endDate } = req.query;
 
+    if (!serviceId || !startDate || !endDate) {
+      return res.status(400).json({
+        success: false,
+        message: "serviceId, startDate, endDate required",
+      });
+    }
+
+    const slots = await serviceService.getServiceSlotsInRange(
+      serviceId,
+      startDate,
+      endDate
+    );
+
+    return res.status(200).json({
+      success: true,
+      data: slots,
+    });
+  } catch (error) {
+    return res.status(500).json({
+      success: false,
+      message: error.message,
+    });
+  }
+}
 }
 
 

@@ -9,7 +9,7 @@ import StatusMessage from "@/components/StatusMessage";
 import { findDemoServiceById } from "@/data/demoCatalog";
 import {
   getServiceById,
-  getServiceSlots,
+  getServiceSlotsInRange, // ✅ FIXED IMPORT
 } from "@/services/service.service";
 
 export default function ServiceDetailsPage({ params }) {
@@ -44,7 +44,9 @@ export default function ServiceDetailsPage({ params }) {
 
       try {
         const res = await getServiceById(params.serviceId);
-console.log("🔥 SERVICE RESPONSE:", res);
+
+        console.log("🔥 SERVICE RESPONSE:", res);
+
         setService(res?.data ?? res ?? null);
         setError("");
       } catch (err) {
@@ -57,7 +59,7 @@ console.log("🔥 SERVICE RESPONSE:", res);
     load();
   }, [params.serviceId]);
 
-  // ================= LOAD SLOTS =================
+  // ================= LOAD SLOTS (FIXED) =================
   const handleLoadSlots = async (e) => {
     e.preventDefault();
 
@@ -66,18 +68,36 @@ console.log("🔥 SERVICE RESPONSE:", res);
       return;
     }
 
-    if (!slotFilters.startDate || !slotFilters.endDate) {
+    const { startDate, endDate } = slotFilters;
+
+    if (!startDate || !endDate) {
       setSlotError("Select both dates.");
+      return;
+    }
+
+    if (new Date(startDate) > new Date(endDate)) {
+      setSlotError("Start date cannot be after end date.");
       return;
     }
 
     setSlotLoading(true);
     setSlotError("");
+    setSlots([]);
 
     try {
-      const res = await getServiceSlots(params.serviceId, slotFilters);
-      setSlots(res?.data || []);
+      console.log("🚀 FETCHING RANGE SLOTS:", slotFilters);
+
+      const res = await getServiceSlotsInRange(
+        params.serviceId,
+        startDate,
+        endDate
+      );
+
+      console.log("🔥 SLOT RESPONSE:", res);
+
+      setSlots(res || []);
     } catch (err) {
+      console.log(err);
       setSlotError(err.message || "Failed to load slots");
     } finally {
       setSlotLoading(false);
@@ -127,7 +147,10 @@ console.log("🔥 SERVICE RESPONSE:", res);
               type="date"
               value={slotFilters.startDate}
               onChange={(e) =>
-                setSlotFilters({ ...slotFilters, startDate: e.target.value })
+                setSlotFilters({
+                  ...slotFilters,
+                  startDate: e.target.value,
+                })
               }
               className="field"
             />
@@ -136,7 +159,10 @@ console.log("🔥 SERVICE RESPONSE:", res);
               type="date"
               value={slotFilters.endDate}
               onChange={(e) =>
-                setSlotFilters({ ...slotFilters, endDate: e.target.value })
+                setSlotFilters({
+                  ...slotFilters,
+                  endDate: e.target.value,
+                })
               }
               className="field"
             />
@@ -152,11 +178,26 @@ console.log("🔥 SERVICE RESPONSE:", res);
 
           {slotLoading && <p>Loading slots...</p>}
 
-          {slots.map((slot) => (
-            <div key={slot._id} className="border p-2 mt-2">
-              {slot.date}
-            </div>
-          ))}
+          <div className="mt-3 space-y-2">
+            {slots.length === 0 && !slotLoading ? (
+              <p className="text-sm text-gray-500">No slots found</p>
+            ) : (
+              slots.map((slot) => (
+                <div key={slot._id} className="border p-2 rounded">
+                  <p className="font-medium">
+                    📅 {new Date(slot.date).toDateString()}
+                  </p>
+
+                  {slot.timeSlots?.map((t, idx) => (
+                    <p key={idx} className="text-sm">
+                      ⏰ {t.startTime} - {t.endTime}
+                    </p>
+                  ))}
+                </div>
+              ))
+            )}
+          </div>
+
         </Panel>
 
       </div>

@@ -156,3 +156,11 @@ export function getProviderStats() {
     method: "GET",
   });
 }
+
+export function getServiceSlotsInRange(serviceId, startDate, endDate) {
+  console.log("🚀 RANGE CALL:", { serviceId, startDate, endDate });
+
+  return request(
+    `/api/services/${serviceId}/slots/range?startDate=${startDate}&endDate=${endDate}`
+  );
+}
