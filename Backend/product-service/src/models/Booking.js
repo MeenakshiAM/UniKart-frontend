@@ -2,7 +2,7 @@ const mongoose = require("mongoose");
 
 const bookingSchema = new mongoose.Schema({
 
-  // Service Reference
+  // ================= BASIC =================
   serviceId: {
     type: mongoose.Schema.Types.ObjectId,
     ref: "Service",
@@ -10,7 +10,6 @@ const bookingSchema = new mongoose.Schema({
     index: true
   },
 
-  // Slot Reference
   slotId: {
     type: mongoose.Schema.Types.ObjectId,
     ref: "Slot",
@@ -22,24 +21,16 @@ const bookingSchema = new mongoose.Schema({
     required: true
   },
 
-  // Booking Date
   bookingDate: {
     type: Date,
     required: true,
     index: true
   },
 
-  startTime: {
-    type: String,
-    required: true
-  },
+  startTime: { type: String, required: true },
+  endTime: { type: String, required: true },
 
-  endTime: {
-    type: String,
-    required: true
-  },
-
-  // User Info
+  // ================= USER =================
   userId: {
     type: mongoose.Schema.Types.ObjectId,
     ref: "User",
@@ -47,22 +38,11 @@ const bookingSchema = new mongoose.Schema({
     index: true
   },
 
-  userName: {
-    type: String,
-    required: true
-  },
+  userName: { type: String, required: true },
+  userEmail: { type: String, required: true },
+  userPhone: { type: String },
 
-  userEmail: {
-    type: String,
-    required: true
-  },
-
-  userPhone: {
-    type: String,
-    //required: true
-  },
-
-  // Provider Info
+  // ================= PROVIDER =================
   providerId: {
     type: mongoose.Schema.Types.ObjectId,
     ref: "User",
@@ -72,10 +52,10 @@ const bookingSchema = new mongoose.Schema({
 
   providerName: {
     type: String,
-    required: true
+    default: "Provider"
   },
 
-  // Booking Details
+  // ================= DETAILS =================
   participants: {
     type: Number,
     default: 1,
@@ -87,7 +67,7 @@ const bookingSchema = new mongoose.Schema({
     maxlength: 500
   },
 
-  // Pricing
+  // ================= PRICING =================
   pricing: {
     basePrice: { type: Number, required: true },
     serviceFee: { type: Number, default: 0 },
@@ -96,41 +76,35 @@ const bookingSchema = new mongoose.Schema({
     totalAmount: { type: Number, required: true }
   },
 
-  // Payment
+  // ================= PAYMENT LINK =================
   payment: {
+    paymentId: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "Payment"
+    },
+
     status: {
       type: String,
-      enum: ["pending", "completed", "failed", "refunded"],
+      enum: ["pending", "paid", "failed"],
       default: "pending"
-    },
-
-    method: {
-      type: String,
-      enum: ["razorpay", "upi", "cash"]
-    },
-
-    transactionId: String,
-
-    paidAt: Date,
-
-    refundedAt: Date
+    }
   },
 
-  // Booking Status
+  // ================= BOOKING STATUS =================
   status: {
     type: String,
     enum: [
-      "pending",
+      "pending_payment",
       "confirmed",
       "completed",
       "cancelled",
       "no_show"
     ],
-    default: "pending",
+    default: "pending_payment",
     index: true
   },
 
-  // Cancellation
+  // ================= CANCELLATION =================
   cancellation: {
     cancelledAt: Date,
     cancelledBy: {
@@ -140,7 +114,7 @@ const bookingSchema = new mongoose.Schema({
     reason: String
   },
 
-  // Meeting / WhatsApp Link (Reveal after booking)
+  // ================= POST BOOKING =================
   postBookingDetailsRevealed: {
     type: Boolean,
     default: false
@@ -153,94 +127,51 @@ const bookingSchema = new mongoose.Schema({
     revealedAt: Date
   },
 
-  // Review
+  // ================= REVIEW =================
   review: {
-    hasReviewed: {
-      type: Boolean,
-      default: false
-    },
+    hasReviewed: { type: Boolean, default: false },
     reviewId: {
       type: mongoose.Schema.Types.ObjectId,
       ref: "Review"
     }
   }
 
-}, {
-  timestamps: true
-});
+}, { timestamps: true });
 
 
-// Indexes
+// ================= INDEXES =================
 bookingSchema.index({ userId: 1, status: 1 });
 bookingSchema.index({ providerId: 1, status: 1 });
 bookingSchema.index({ serviceId: 1, bookingDate: 1 });
 bookingSchema.index({ createdAt: -1 });
 
 
-// Confirm booking
+// ================= METHODS =================
 bookingSchema.methods.confirm = function () {
   this.status = "confirmed";
   return this.save();
 };
 
-
-// Complete payment
-bookingSchema.methods.completePayment = function (transactionId, method) {
-  this.payment.status = "completed";
-  this.payment.transactionId = transactionId;
-  this.payment.method = method;
-  this.payment.paidAt = new Date();
-
+bookingSchema.methods.completePayment = function (paymentId) {
+  this.payment.paymentId = paymentId;
+  this.payment.status = "paid";
   this.status = "confirmed";
-
   return this.save();
 };
 
-
-// Reveal meeting link after booking
-bookingSchema.methods.revealPostBookingDetails = function (details) {
-  this.postBookingDetailsRevealed = true;
-
-  this.revealedDetails = {
-    ...details,
-    revealedAt: new Date()
-  };
-
-  return this.save();
-};
-
-
-// Cancel booking
 bookingSchema.methods.cancelBooking = function (userId, reason) {
-
   this.status = "cancelled";
-
   this.cancellation = {
     cancelledAt: new Date(),
     cancelledBy: userId,
     reason
   };
-
   return this.save();
 };
 
-
-// Mark completed
 bookingSchema.methods.markCompleted = function () {
   this.status = "completed";
   return this.save();
-};
-
-
-// Provider bookings
-bookingSchema.statics.getProviderBookings = function (providerId) {
-  return this.find({ providerId }).sort({ bookingDate: -1 });
-};
-
-
-// User bookings
-bookingSchema.statics.getUserBookings = function (userId) {
-  return this.find({ userId }).sort({ bookingDate: -1 });
 };
 
 

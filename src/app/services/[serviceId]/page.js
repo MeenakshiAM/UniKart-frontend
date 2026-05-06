@@ -12,6 +12,7 @@ import {
   getServiceSlotsInRange,
 } from "@/services/service.service";
 
+import { getToken } from "@/utils/auth";
 import { createBooking } from "@/services/booking.service";
 
 export default function ServiceDetailsPage({ params }) {
@@ -46,9 +47,6 @@ export default function ServiceDetailsPage({ params }) {
 
       try {
         const res = await getServiceById(params.serviceId);
-
-        console.log("🔥 SERVICE RESPONSE:", res);
-
         setService(res?.data ?? res ?? null);
         setError("");
       } catch (err) {
@@ -60,6 +58,20 @@ export default function ServiceDetailsPage({ params }) {
 
     load();
   }, [params.serviceId]);
+
+  // ================= LOAD RAZORPAY =================
+  const loadRazorpay = () => {
+    return new Promise((resolve) => {
+      if (window.Razorpay) return resolve(true);
+
+      const script = document.createElement("script");
+      script.src = "https://checkout.razorpay.com/v1/checkout.js";
+      script.onload = () => resolve(true);
+      script.onerror = () => resolve(false);
+
+      document.body.appendChild(script);
+    });
+  };
 
   // ================= LOAD SLOTS =================
   const handleLoadSlots = async (e) => {
@@ -88,20 +100,19 @@ export default function ServiceDetailsPage({ params }) {
         endDate
       );
 
-      console.log("🔥 SLOT RESPONSE:", res);
-
       setSlots(res || []);
     } catch (err) {
-      console.log(err);
       setSlotError(err.message || "Failed to load slots");
     } finally {
       setSlotLoading(false);
     }
   };
 
-  // ================= BOOK SLOT =================
+  // ================= BOOK + PAYMENT =================
   const handleBookSlot = async (slotId, timeSlotId) => {
     try {
+      console.log("🚀 Creating booking...");
+
       const payload = {
         serviceId: params.serviceId,
         slotId,
@@ -109,23 +120,124 @@ export default function ServiceDetailsPage({ params }) {
         participants: 1,
       };
 
-      console.log("🚀 BOOKING PAYLOAD:", payload);
-
       const res = await createBooking(payload);
 
-      console.log("✅ BOOKING SUCCESS:", res);
+      const booking = res?.data || res;
+      const bookingId = booking._id;
+      const amount = booking.pricing.totalAmount;
 
-      alert("Booking successful!");
+      console.log("✅ Booking created:", bookingId);
+
+      // ================= TOKEN =================
+      const token = getToken();
+
+      if (!token) {
+        alert("Login required");
+        return;
+      }
+
+      // ================= DECODE USER =================
+      let userId;
+
+      try {
+        const decoded = JSON.parse(atob(token.split(".")[1]));
+        userId = decoded.userId;
+      } catch {
+        alert("Invalid token");
+        return;
+      }
+
+      // ================= LOAD RAZORPAY =================
+      const loaded = await loadRazorpay();
+      if (!loaded) {
+        alert("Razorpay failed to load");
+        return;
+      }
+
+      // ================= CREATE ORDER =================
+      const response = await fetch(
+        "http://localhost:4008/api/payments/create-order",
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${token}`,
+          },
+          body: JSON.stringify({
+            amount,
+            currency: "INR",
+            userId, // 🔥 FIXED
+          }),
+        }
+      );
+
+      const data = await response.json();
+
+      if (!data.success) {
+        throw new Error(data.message);
+      }
+
+      // ================= RAZORPAY =================
+      const options = {
+        key: data.data.key,
+        amount: data.data.amount,
+        currency: "INR",
+        order_id: data.data.razorpayOrderId,
+        name: "UniKart Services",
+
+        handler: async (res) => {
+          try {
+            // VERIFY PAYMENT
+            await fetch(
+              "http://localhost:4008/api/payments/confirm",
+              {
+                method: "POST",
+                headers: {
+                  "Content-Type": "application/json",
+                },
+                body: JSON.stringify({
+                  razorpayOrderId: res.razorpay_order_id,
+                  razorpayPaymentId: res.razorpay_payment_id,
+                  razorpaySignature: res.razorpay_signature,
+                }),
+              }
+            );
+
+            // MARK BOOKING PAID
+            await fetch(
+              `http://localhost:4002/api/bookings/${bookingId}/pay`,
+              {
+                method: "PATCH",
+                headers: {
+                  "Content-Type": "application/json",
+                },
+              }
+            );
+
+            alert("🎉 Booking confirmed!");
+
+          } catch {
+            alert("Payment verification failed");
+          }
+        },
+      };
+
+      const rzp = new window.Razorpay(options);
+
+      rzp.on("payment.failed", () => {
+        alert("Payment failed ❌");
+      });
+
+      rzp.open();
+
     } catch (err) {
       console.error("❌ Booking failed:", err.message);
       alert(err.message);
     }
   };
 
-  // ================= LOADING UI =================
-  if (loading) {
-    return <div className="p-6">Loading service...</div>;
-  }
+  // ================= UI =================
+  if (loading) return <div className="p-6">Loading service...</div>;
 
   if (!service || error) {
     return (
@@ -136,7 +248,6 @@ export default function ServiceDetailsPage({ params }) {
     );
   }
 
-  // ================= UI =================
   return (
     <div className="space-y-6">
 
@@ -148,28 +259,21 @@ export default function ServiceDetailsPage({ params }) {
 
       <div className="grid lg:grid-cols-2 gap-6">
 
-        {/* LEFT */}
         <Panel>
           <Info label="Category" value={service.category} />
           <Info label="Type" value={service.serviceType} />
           <Info label="Status" value={service.status} />
         </Panel>
 
-        {/* RIGHT */}
         <Panel>
           <h2 className="font-semibold mb-3">Slots</h2>
 
-          {/* FILTER */}
           <form onSubmit={handleLoadSlots} className="space-y-2">
-
             <input
               type="date"
               value={slotFilters.startDate}
               onChange={(e) =>
-                setSlotFilters({
-                  ...slotFilters,
-                  startDate: e.target.value,
-                })
+                setSlotFilters({ ...slotFilters, startDate: e.target.value })
               }
               className="field"
             />
@@ -178,10 +282,7 @@ export default function ServiceDetailsPage({ params }) {
               type="date"
               value={slotFilters.endDate}
               onChange={(e) =>
-                setSlotFilters({
-                  ...slotFilters,
-                  endDate: e.target.value,
-                })
+                setSlotFilters({ ...slotFilters, endDate: e.target.value })
               }
               className="field"
             />
@@ -195,13 +296,11 @@ export default function ServiceDetailsPage({ params }) {
             <StatusMessage type="error">{slotError}</StatusMessage>
           )}
 
-          {/* SLOT LIST */}
           <div className="mt-4 space-y-4">
-
             {slotLoading ? (
-              <p className="text-sm text-gray-500">Loading slots...</p>
+              <p>Loading slots...</p>
             ) : slots.length === 0 ? (
-              <p className="text-sm text-gray-500">No slots found</p>
+              <p>No slots found</p>
             ) : (
               slots.map((slot) => (
                 <div key={slot._id} className="border p-3 rounded">
@@ -211,14 +310,12 @@ export default function ServiceDetailsPage({ params }) {
                   </p>
 
                   <div className="mt-2 space-y-2">
-
                     {slot.timeSlots?.map((t) => (
                       <div
                         key={t._id}
                         className="flex justify-between items-center border p-2 rounded"
                       >
-
-                        <span className="text-sm">
+                        <span>
                           ⏰ {t.startTime} - {t.endTime}
                         </span>
 
@@ -233,23 +330,20 @@ export default function ServiceDetailsPage({ params }) {
 
                       </div>
                     ))}
-
                   </div>
 
                 </div>
               ))
             )}
-
           </div>
 
         </Panel>
-
       </div>
     </div>
   );
 }
 
-// ================= HELPERS =================
+// ================= HELPER =================
 function Info({ label, value }) {
   return (
     <div className="mb-2">
