@@ -2,35 +2,47 @@ const express = require("express");
 const router = express.Router();
 
 const reviewController = require("../controllers/review.controller");
-const auth= require("../middlewares/auth.middleware");
+const auth = require("../middlewares/auth.middleware");
 
-
-
+// ================= CREATE REVIEW =================
+// POST /api/reviews/product/:id
+// POST /api/reviews/service/:id
 router.post(
-  "/products/:id/reviews",
+  "/:targetType/:id",
   auth,
   reviewController.createReview
 );
 
+// ================= GET REVIEWS =================
+// GET /api/reviews/product/:id
+// GET /api/reviews/service/:id
 router.get(
-  "/products/:id/reviews",
+  "/:targetType/:id",
   reviewController.getReviewsByProduct
 );
 
+// ================= GET STATS =================
+// GET /api/reviews/product/:id/stats
+// GET /api/reviews/service/:id/stats
+router.get(
+  "/:targetType/:id/stats",
+  reviewController.getRatingStats
+);
+
+// ================= UPDATE REVIEW =================
+// PUT /api/reviews/:reviewId
+router.put(
+  "/:reviewId",
+  auth,
+  reviewController.updateReview
+);
+
+// ================= DELETE REVIEW =================
+// DELETE /api/reviews/:reviewId
 router.delete(
-  "/reviews/:reviewId",
+  "/:reviewId",
   auth,
   reviewController.deleteReview
 );
 
-router.get(
-  "/products/:id/reviews/stats",
-  reviewController.getRatingStats
-);
-
-router.put(
-  "/reviews/:reviewId",
-  auth,
-  reviewController.updateReview
-);
 module.exports = router;

@@ -3,23 +3,41 @@
 import { useEffect, useState } from "react";
 import { getProductById } from "@/services/product.service";
 import { addToCart, toggleWishlist } from "@/services/cart.service";
+import { getReviewsByProduct, createReview } from "@/services/review.service";
 import { getToken } from "@/utils/auth";
 import Link from "next/link";
 import { ShoppingCart, Heart } from "lucide-react";
 
 export default function ProductDetailsPage({ params }) {
   const [product, setProduct] = useState(null);
+  const [reviews, setReviews] = useState([]);
+
   const [loading, setLoading] = useState(true);
+  const [reviewLoading, setReviewLoading] = useState(false);
 
   const [message, setMessage] = useState("");
   const [loadingAction, setLoadingAction] = useState("");
   const [isWishlisted, setIsWishlisted] = useState(false);
 
+  // review form
+  const [rating, setRating] = useState(5);
+  const [comment, setComment] = useState("");
+
+  // ================= LOAD PRODUCT + REVIEWS =================
   useEffect(() => {
     const load = async () => {
       try {
         const data = await getProductById(params.id);
         setProduct(data?.product);
+
+        // load reviews safely
+        try {
+          const rev = await getReviewsByProduct(params.id);
+          setReviews(rev?.reviews || []);
+        } catch (err) {
+          console.log("Reviews not available yet");
+          setReviews([]);
+        }
       } catch {
         setProduct(null);
       } finally {
@@ -30,6 +48,7 @@ export default function ProductDetailsPage({ params }) {
     load();
   }, [params.id]);
 
+  // ================= CART =================
   const handleAddToCart = async () => {
     if (!getToken()) {
       setMessage("Please login first");
@@ -42,8 +61,7 @@ export default function ProductDetailsPage({ params }) {
       await addToCart({
         productId: product._id,
         quantity: 1,
-        priceAtTime:
-          product.price?.finalPrice || product.price?.basePrice,
+        priceAtTime: product.price?.finalPrice || product.price?.basePrice,
       });
       setMessage("Added to cart");
     } catch {
@@ -53,6 +71,7 @@ export default function ProductDetailsPage({ params }) {
     }
   };
 
+  // ================= WISHLIST =================
   const handleWishlist = async () => {
     if (!getToken()) {
       setMessage("Please login first");
@@ -72,6 +91,36 @@ export default function ProductDetailsPage({ params }) {
     }
   };
 
+  // ================= ADD REVIEW =================
+  const handleReviewSubmit = async () => {
+  if (!getToken()) {
+    setMessage("Login required");
+    return;
+  }
+
+  setReviewLoading(true);
+
+  try {
+    const newReview = await createReview(product._id, {
+      targetType: "PRODUCT",
+      targetId: product._id,
+      rating,
+      text: comment,
+    });
+
+    setReviews((prev) => [newReview?.review, ...prev]);
+    setComment("");
+    setRating(5);
+    setMessage("Review added");
+  } catch (err) {
+    setMessage("Failed to add review");
+    console.log( err);
+  } finally {
+    setReviewLoading(false);
+  }
+};
+
+  // ================= UI STATES =================
   if (loading) return <p className="text-center mt-10">Loading...</p>;
 
   if (!product) {
@@ -90,30 +139,25 @@ export default function ProductDetailsPage({ params }) {
         Back
       </Link>
 
+      {/* ================= PRODUCT ================= */}
       <div className="grid md:grid-cols-2 gap-8 mt-6">
 
-        {/* IMAGE */}
         <img
           src={product.images?.[0]?.url}
           className="w-full h-80 object-cover rounded"
         />
 
-        {/* DETAILS */}
         <div className="space-y-4">
 
           <h1 className="text-2xl font-bold">{product.title}</h1>
-
           <p className="text-gray-500">{product.category}</p>
 
           <p className="text-xl font-semibold">
             ₹{product.price?.finalPrice || product.price?.basePrice}
           </p>
 
-          <p className="text-gray-700">
-            {product.description}
-          </p>
+          <p className="text-gray-700">{product.description}</p>
 
-          {/* BUTTONS */}
           <div className="flex gap-4 pt-4">
 
             <button
@@ -129,9 +173,7 @@ export default function ProductDetailsPage({ params }) {
               className="flex items-center gap-2 px-4 py-2 border rounded"
             >
               <Heart size={18} fill={isWishlisted ? "black" : "none"} />
-              {loadingAction === "wishlist"
-                ? "Updating..."
-                : "Wishlist"}
+              {loadingAction === "wishlist" ? "Updating..." : "Wishlist"}
             </button>
 
           </div>
@@ -141,6 +183,65 @@ export default function ProductDetailsPage({ params }) {
           )}
 
         </div>
+      </div>
+
+      {/* ================= REVIEW SECTION ================= */}
+      <div className="mt-12 border-t pt-6">
+
+        <h2 className="text-xl font-semibold mb-4">Reviews</h2>
+
+        {/* REVIEW FORM */}
+        <div className="space-y-2 mb-6">
+
+          <select
+            value={rating}
+            onChange={(e) => setRating(Number(e.target.value))}
+            className="border p-2 rounded"
+          >
+            {[5, 4, 3, 2, 1].map((r) => (
+              <option key={r} value={r}>
+                {r} Stars
+              </option>
+            ))}
+          </select>
+
+          <textarea
+            value={comment}
+            onChange={(e) => setComment(e.target.value)}
+            placeholder="Write your review..."
+            className="w-full border p-2 rounded"
+          />
+
+          <button
+            onClick={handleReviewSubmit}
+            className="px-4 py-2 bg-black text-white rounded"
+          >
+            {reviewLoading ? "Posting..." : "Add Review"}
+          </button>
+
+        </div>
+
+        {/* REVIEW LIST */}
+        <div className="space-y-4">
+
+          {reviews.length === 0 ? (
+            <p className="text-gray-500">No reviews yet</p>
+          ) : (
+            reviews.map((r, i) => (
+              <div key={i} className="border p-3 rounded">
+
+                <p className="font-semibold">
+                  ⭐ {r.rating}/5
+                </p>
+
+                <p>{r.comment}</p>
+
+              </div>
+            ))
+          )}
+
+        </div>
+
       </div>
     </div>
   );

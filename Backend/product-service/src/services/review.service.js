@@ -3,13 +3,21 @@ const Product = require("../models/Product");
 const Service = require("../models/Service");
 const mongoose = require("mongoose");
 
+// ================= HELPERS =================
 const validateObjectId = (id) => {
   if (!mongoose.Types.ObjectId.isValid(id)) {
     throw new Error("Invalid ID");
   }
 };
 
+const getTargetModel = (targetType) => {
+  const type = targetType?.toUpperCase();
 
+  if (type === "PRODUCT") return Product;
+  if (type === "SERVICE") return Service;
+
+  throw new Error("Invalid target type");
+};
 
 // ================= CREATE REVIEW =================
 exports.createReview = async ({
@@ -18,12 +26,11 @@ exports.createReview = async ({
   userId,
   rating,
   text,
-  images
+  images,
 }) => {
-
   validateObjectId(targetId);
 
-  if (rating < 1 || rating > 5) {
+  if (!rating || rating < 1 || rating > 5) {
     throw new Error("Rating must be between 1 and 5");
   }
 
@@ -31,21 +38,14 @@ exports.createReview = async ({
     throw new Error("Maximum 3 images allowed");
   }
 
-  let target;
+  const Model = getTargetModel(targetType);
 
-  if (targetType === "PRODUCT") {
-    target = await Product.findById(targetId);
-  }
-
-  if (targetType === "SERVICE") {
-    target = await Service.findById(targetId);
-  }
-
+  const target = await Model.findById(targetId);
   if (!target) throw new Error("Target not found");
 
   const existing = await Review.findOne({
-    targetId,
-    userId
+    targetId: new mongoose.Types.ObjectId(targetId),
+    userId,
   });
 
   if (existing) {
@@ -53,12 +53,12 @@ exports.createReview = async ({
   }
 
   const review = await Review.create({
-    targetType,
-    targetId,
+    targetType: targetType.toUpperCase(),
+    targetId: new mongoose.Types.ObjectId(targetId),
     userId,
     rating,
     text,
-    images
+    images,
   });
 
   await exports.updateRating(targetId, targetType);
@@ -66,28 +66,30 @@ exports.createReview = async ({
   return review;
 };
 
-
-
 // ================= UPDATE REVIEW =================
 exports.updateReview = async ({
   reviewId,
   userId,
   rating,
   text,
-  images
+  images,
 }) => {
-
   validateObjectId(reviewId);
 
   const review = await Review.findById(reviewId);
-
   if (!review) throw new Error("Review not found");
 
   if (review.userId.toString() !== userId) {
     throw new Error("Not allowed");
   }
 
-  if (rating != null) review.rating = rating;
+  if (rating != null) {
+    if (rating < 1 || rating > 5) {
+      throw new Error("Invalid rating");
+    }
+    review.rating = rating;
+  }
+
   if (text != null) review.text = text;
   if (images != null) review.images = images;
 
@@ -98,13 +100,11 @@ exports.updateReview = async ({
   return review;
 };
 
-
-
 // ================= DELETE REVIEW =================
 exports.deleteReview = async ({ reviewId, userId }) => {
+  validateObjectId(reviewId);
 
   const review = await Review.findById(reviewId);
-
   if (!review) throw new Error("Review not found");
 
   if (review.userId.toString() !== userId) {
@@ -120,68 +120,71 @@ exports.deleteReview = async ({ reviewId, userId }) => {
   return { message: "Review deleted" };
 };
 
-
-
 // ================= GET REVIEWS =================
-exports.getReviews = async (targetId, query) => {
+exports.getReviews = async (targetId, query = {}) => {
+  validateObjectId(targetId);
 
-  const { page = 1, limit = 10 } = query;
+  const page = Number(query.page) || 1;
+  const limit = Number(query.limit) || 10;
 
   const filter = {
-    targetId,
-    status: "ACTIVE"
+    targetId: new mongoose.Types.ObjectId(targetId), // 🔥 FIXED
+    status: "ACTIVE",
   };
 
-  const total = await Review.countDocuments(filter);
+  const [reviews, total] = await Promise.all([
+    Review.find(filter)
+      .sort({ createdAt: -1 })
+      .skip((page - 1) * limit)
+      .limit(limit)
+      .populate("userId", "name email"), // optional but useful
 
-  const reviews = await Review.find(filter)
-    .sort({ createdAt: -1 })
-    .skip((page - 1) * limit)
-    .limit(Number(limit));
+    Review.countDocuments(filter),
+  ]);
 
   return {
     reviews,
     total,
     page,
-    totalPages: Math.ceil(total / limit)
+    totalPages: Math.ceil(total / limit),
   };
 };
 
-
-
 // ================= UPDATE RATING =================
 exports.updateRating = async (targetId, targetType) => {
-
   const stats = await Review.aggregate([
     {
       $match: {
         targetId: new mongoose.Types.ObjectId(targetId),
-        status: "ACTIVE"
-      }
+        status: "ACTIVE",
+      },
     },
     {
       $group: {
         _id: "$targetId",
         avgRating: { $avg: "$rating" },
-        reviewCount: { $sum: 1 }
-      }
-    }
+        reviewCount: { $sum: 1 },
+      },
+    },
   ]);
 
   const update =
     stats.length > 0
       ? {
-          averageRating: parseFloat(stats[0].avgRating.toFixed(2)),
-          reviewCount: stats[0].reviewCount
+          averageRating: Number(stats[0].avgRating.toFixed(2)),
+          reviewCount: stats[0].reviewCount,
         }
-      : { averageRating: 0, reviewCount: 0 };
+      : {
+          averageRating: 0,
+          reviewCount: 0,
+        };
 
-  if (targetType === "PRODUCT") {
-    await Product.findByIdAndUpdate(targetId, update);
-  }
+  const Model = getTargetModel(targetType);
 
-  if (targetType === "SERVICE") {
-    await Service.findByIdAndUpdate(targetId, update);
-  }
+  await Model.findByIdAndUpdate(targetId, update);
+};
 
+// ================= GET REVIEWS BY PRODUCT/SERVICE =================
+exports.getReviewsByProductService = async (targetId, query = {}) => {
+  return await exports.getReviews(targetId, query);
 };

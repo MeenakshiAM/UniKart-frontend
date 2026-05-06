@@ -138,7 +138,7 @@ async createBooking(data) {
 
     booking.status = "confirmed";
     booking.confirmedAt = new Date();
-
+ 
     await booking.save();
 
     return booking;

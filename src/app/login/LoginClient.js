@@ -3,9 +3,11 @@
 import Link from "next/link";
 import { useEffect, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
+
 import AuthFormShell from "@/components/AuthFormShell";
 import PageCard from "@/components/PageCard";
 import StatusMessage from "@/components/StatusMessage";
+
 import { loginUser } from "@/services/auth.service";
 import { getToken, saveAuthSession } from "@/utils/auth";
 import { validateLogin } from "@/utils/validators";
@@ -13,12 +15,24 @@ import { validateLogin } from "@/utils/validators";
 export default function LoginClient() {
   const router = useRouter();
   const searchParams = useSearchParams();
-  const [form, setForm] = useState({ email: "", password: "" });
-  const [status, setStatus] = useState({ type: "info", message: "" });
-  const [submitting, setSubmitting] = useState(false);
 
+  const [form, setForm] = useState({
+    email: "",
+    password: "",
+  });
+
+  const [status, setStatus] = useState({
+    type: "info",
+    message: "",
+  });
+
+  const [loading, setLoading] = useState(false);
+
+  // ✅ Redirect if already logged in
   useEffect(() => {
-    if (getToken()) {
+    const token = getToken();
+
+    if (token) {
       router.replace("/dashboard");
       return;
     }
@@ -26,104 +40,141 @@ export default function LoginClient() {
     if (searchParams.get("reason") === "session-expired") {
       setStatus({
         type: "error",
-        message: "Your session expired or the token was rejected. Please log in again.",
+        message: "Session expired. Please log in again.",
       });
     }
   }, [router, searchParams]);
 
-  const handleChange = (event) => {
-    const { name, value } = event.target;
-    setForm((current) => ({ ...current, [name]: value }));
+  // ✅ Handle input change
+  const handleChange = (e) => {
+    const { name, value } = e.target;
+
+    setForm((prev) => ({
+      ...prev,
+      [name]: value,
+    }));
   };
 
-  const handleSubmit = async (event) => {
-    event.preventDefault();
+  // ✅ Handle submit
+  const handleSubmit = async (e) => {
+    e.preventDefault();
+
     setStatus({ type: "info", message: "" });
 
-    const validationMessage = validateLogin(form);
-    if (validationMessage) {
-      setStatus({ type: "error", message: validationMessage });
+    // 🔍 Validation
+    const validationError = validateLogin(form);
+    if (validationError) {
+      setStatus({
+        type: "error",
+        message: validationError,
+      });
       return;
     }
 
-    setSubmitting(true);
+    setLoading(true);
 
     try {
-      const data = await loginUser(form);
+      const res = await loginUser(form);
 
-      if (!data?.token || !data?.user) {
-        throw new Error("Login succeeded but the backend returned an incomplete session.");
+      const token = res?.token;
+      const user = res?.user;
+
+      if (!token || !user) {
+        throw new Error("Invalid response from server");
       }
 
-      saveAuthSession(data.token, data.user);
-      const nextPath = searchParams.get("next") || "/dashboard";
-      router.replace(nextPath);
-    } catch (error) {
+      // 💾 Save session
+      saveAuthSession(token, user);
+
+      // 🔁 Redirect
+      const next = searchParams.get("next") || "/dashboard";
+      router.replace(next);
+
+    } catch (err) {
+      console.error("Login error:", err);
+
       setStatus({
         type: "error",
         message:
-          error.message ||
-          "Login failed. If the backend crashed on an unknown user, please double-check the email and try again.",
+          err?.response?.data?.message || // backend error
+          err.message || 
+          "Login failed. Please try again.",
       });
+
     } finally {
-      setSubmitting(false);
+      setLoading(false);
     }
   };
 
   return (
     <PageCard
-      title="Log in to continue"
-      subtitle="Use your Unikart account credentials. The session token is stored in localStorage exactly as requested."
+      title="Login to UniKart"
+      subtitle="Access your account securely"
     >
       <AuthFormShell
         footer={
           <p className="text-sm text-[var(--muted)]">
-            Need an account?{" "}
+            Don't have an account?{" "}
             <Link href="/signup" className="font-semibold text-[var(--brand)]">
-              Create one
+              Sign up
             </Link>
           </p>
         }
       >
-        <StatusMessage type={status.type}>{status.message}</StatusMessage>
+        <StatusMessage type={status.type}>
+          {status.message}
+        </StatusMessage>
 
         <form onSubmit={handleSubmit} className="space-y-4">
+          
+          {/* EMAIL */}
           <label className="block space-y-2">
             <span className="text-sm font-medium">Email</span>
             <input
-              className="field"
               type="email"
               name="email"
               value={form.email}
               onChange={handleChange}
+              className="field"
               placeholder="you@example.com"
+              required
             />
           </label>
 
+          {/* PASSWORD */}
           <label className="block space-y-2">
             <span className="text-sm font-medium">Password</span>
             <input
-              className="field"
               type="password"
               name="password"
               value={form.password}
               onChange={handleChange}
-              placeholder="Enter your password"
+              className="field"
+              placeholder="Enter password"
+              required
             />
           </label>
 
-          <button type="submit" className="btn-primary w-full" disabled={submitting}>
-            {submitting ? "Signing in..." : "Login"}
+          {/* BUTTON */}
+          <button
+            type="submit"
+            disabled={loading}
+            className="btn-primary w-full"
+          >
+            {loading ? "Logging in..." : "Login"}
           </button>
         </form>
 
-        <div className="flex flex-wrap gap-3 text-sm text-[var(--muted)]">
-          <Link href="/resend-verification" className="font-medium text-[var(--brand)]">
-            Resend verification email
+        {/* EXTRA LINKS */}
+        <div className="flex flex-wrap gap-3 text-sm text-[var(--muted)] mt-3">
+          <Link href="/resend-verification" className="text-[var(--brand)] font-medium">
+            Resend verification
           </Link>
+
           <span>•</span>
-          <Link href="/signup" className="font-medium text-[var(--brand)]">
-            Go to signup
+
+          <Link href="/signup" className="text-[var(--brand)] font-medium">
+            Create account
           </Link>
         </div>
       </AuthFormShell>
