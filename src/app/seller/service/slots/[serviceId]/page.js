@@ -100,23 +100,30 @@ export default function SlotManagerPage() {
 
   // ================= EDIT (basic placeholder) =================
   const handleEdit = async (slot) => {
-    const newStart = prompt("New start time", slot.timeSlots?.[0]?.startTime);
-    const newEnd = prompt("New end time", slot.timeSlots?.[0]?.endTime);
+  const time = slot.timeSlots?.[0];
 
-    if (!newStart || !newEnd) return;
+  const newStart = prompt("New start time", time?.startTime);
+  const newEnd = prompt("New end time", time?.endTime);
 
-    try {
-      await updateSlot(slot._id, {
-        startTime: newStart,
-        endTime: newEnd,
-      });
+  if (!newStart || !newEnd) return;
 
-      loadSlots();
-    } catch (err) {
-      console.log(err);
-    }
-  };
+  try {
+    await updateSlot(slot._id, {
+      timeSlots: [
+        {
+          startTime: newStart,
+          endTime: newEnd,
+          status: time?.status || "available",
+          bookingIds: time?.bookingIds || [],
+        },
+      ],
+    });
 
+    loadSlots();
+  } catch (err) {
+    console.log(err);
+  }
+};
   return (
     <div className="p-6 space-y-6">
 
