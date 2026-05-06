@@ -199,8 +199,15 @@ export default function SellerServicePage() {
                   </div>
 
                   {/* ACTIONS */}
-                  <div className="flex gap-2 mt-4">
-
+                 <div className="grid grid-cols-3 gap-2 mt-4">
+                      <button
+                        onClick={() =>
+                          router.push(`/seller/service/slots/${s._id}`)
+                        }
+                        className="bg-purple-500 text-white py-2 rounded-lg text-sm"
+                      >
+                        Slots
+                      </button>
                     <button
                       onClick={() =>
                         router.push(`/seller/service/edit/${s._id}`)
@@ -232,3 +239,4 @@ export default function SellerServicePage() {
     </div>
   );
 }
+

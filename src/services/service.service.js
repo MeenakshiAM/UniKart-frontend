@@ -108,3 +108,43 @@ export function rejectService(serviceId, data) {
     body: JSON.stringify(data),
   });
 }
+
+// ================= SLOT APIs =================
+
+// CREATE SLOT (single)
+export function createSlot(serviceId, data) {
+  return request(`/api/services/${serviceId}/slots`, {
+    method: "POST",
+    body: JSON.stringify(data),
+  });
+}
+
+// BULK CREATE SLOTS
+export function bulkCreateSlots(serviceId, data) {
+  return request(`/api/services/${serviceId}/slots/bulk`, {
+    method: "POST",
+    body: JSON.stringify(data),
+  });
+}
+
+// UPDATE SLOT
+export function updateSlot(slotId, data) {
+  return request(`/api/services/slots/${slotId}`, {
+    method: "PUT",
+    body: JSON.stringify(data),
+  });
+}
+
+// DELETE SLOT
+export function deleteSlot(slotId) {
+  return request(`/api/services/slots/${slotId}`, {
+    method: "DELETE",
+  });
+}
+
+// PROVIDER STATS
+export function getProviderStats() {
+  return request(`/api/services/provider/stats`, {
+    method: "GET",
+  });
+}

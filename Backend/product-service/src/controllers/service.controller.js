@@ -258,29 +258,48 @@ class ServiceController {
   // ================= SLOT MANAGEMENT =================
 
   async createSlot(req, res) {
-    try {
+  try {
+    const { serviceId } = req.params;
+    const providerId = req.user.userId;
 
-      const { serviceId } = req.params;
-      const providerId = req.user.userId;
+    const { date, startTime, endTime } = req.body;
 
-      const slot = await serviceService.createSlot(serviceId, providerId, req.body);
+    console.log("BODY:", req.body);
 
-      return res.status(201).json({
-        success: true,
-        message: 'Slot created successfully',
-        data: slot
-      });
-
-    } catch (error) {
-
-      return res.status(400).json({
-        success: false,
-        message: error.message
-      });
-
+    if (!date || !startTime || !endTime) {
+      throw new Error("date, startTime, endTime are required");
     }
-  }
 
+    const slot = await serviceService.createSlot(
+      serviceId,
+      providerId,
+      {
+        date,
+        timeSlots: [
+          {
+            startTime,
+            endTime,
+            isBooked: false,
+          },
+        ],
+      }
+    );
+
+    console.log("CREATED SLOT:", slot);
+
+    return res.status(201).json({
+      success: true,
+      message: "Slot created successfully",
+      data: slot,
+    });
+
+  } catch (error) {
+    return res.status(400).json({
+      success: false,
+      message: error.message,
+    });
+  }
+}
 
   async bulkCreateSlots(req, res) {
     try {
