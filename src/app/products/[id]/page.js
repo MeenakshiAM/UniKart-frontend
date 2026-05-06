@@ -33,7 +33,7 @@ export default function ProductDetailsPage({ params }) {
         // load reviews safely
         try {
           const rev = await getReviewsByProduct(params.id);
-          setReviews(rev?.reviews || []);
+          setReviews(rev?.data || []);
         } catch (err) {
           console.log("Reviews not available yet");
           setReviews([]);
@@ -234,7 +234,7 @@ export default function ProductDetailsPage({ params }) {
                   ⭐ {r.rating}/5
                 </p>
 
-                <p>{r.comment}</p>
+                <p>{r.text}</p>
 
               </div>
             ))

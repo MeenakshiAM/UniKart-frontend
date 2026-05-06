@@ -107,7 +107,7 @@ class PaymentService {
       // Update order status
       await Order.findByIdAndUpdate(payment.orderId, {
         paymentStatus: 'paid',
-        status: 'confirmed'
+        status: "confirmed"
       });
 
       return payment;

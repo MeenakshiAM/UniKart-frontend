@@ -66,23 +66,23 @@ exports.createReview = async (req, res) => {
 exports.getReviewsByProduct = async (req, res) => {
   try {
     const targetId = req.params.id;
-const targetType = req.params.targetType.toUpperCase();
+    const targetType =  "PRODUCT";
 
     const result = await reviewService.getReviewsByProductService(
-      productId,
+      targetId,
+      targetType,
       req.query
     );
-
+    console.log(result);
     return res.json({
       success: true,
-      data: result,
+      reviews: result,
     });
 
   } catch (error) {
     return handleError(res, error);
   }
 };
-
 
 // ================= UPDATE =================
 exports.updateReview = async (req, res) => {

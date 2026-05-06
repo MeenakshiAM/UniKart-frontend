@@ -1,4 +1,4 @@
-import { createAxiosRequester } from "@/services/api";
+import { createApiRequester } from "@/services/api";
 
 export const REPORT_TARGET_TYPES = ["PRODUCT", "REVIEW", "USER", "SELLER"];
 export const REPORT_STATUSES = ["PENDING", "UNDER_REVIEW", "RESOLVED", "REJECTED"];
@@ -20,7 +20,7 @@ export const REPORT_REASON_OPTIONS = {
 const REPORT_SERVICE_BASE_URL =
   process.env.NEXT_PUBLIC_REPORT_SERVICE_URL || "http://localhost:4005";
 
-const reportApi = createAxiosRequester(REPORT_SERVICE_BASE_URL);
+const reportApi = createApiRequester(REPORT_SERVICE_BASE_URL);
 
 export function createReport(payload) {
   return reportApi("/api/reports", {

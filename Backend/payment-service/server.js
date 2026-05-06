@@ -42,6 +42,9 @@ app.get('/health', (req, res) => {
 
 // Routes
 app.use('/api/payments', paymentRoutes);
+const dashboardRoutes = require('./routes/dashboardRoutes');
+
+app.use('/api', dashboardRoutes);
 
 // Error handling middleware
 app.use(errorHandler);
